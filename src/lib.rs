@@ -4,6 +4,7 @@ use std::fs::read;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::str;
+use image;
 
 // i16
 fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
@@ -78,35 +79,73 @@ fn read_point_scan(cursor: &mut Cursor<&Vec<u8>>, num_data_points: i32) -> Vec<f
 
 #[derive(Debug)]
 pub struct MulImage {
-    pub	filepath: PathBuf,
-    pub	img_num: i32,
-    pub	img_id: String,
-    pub	size: i32,
-    pub	xres: i32,
-    pub	yres: i32,
-    pub	zres: i32,
-    pub	datetime: DateTime<Utc>,
-    pub	xsize: i32,
-    pub	ysize: i32,
-    pub	xoffset: i32,
-    pub	yoffset: i32,
-    pub	zscale: i32,
-    pub	tilt: i32,
-    pub	speed: f64,
-    pub	line_time: f64,
-    pub	bias: f64,
-    pub	current: f64,
-    pub	sample: String,
-    pub	title: String,
-    pub	postpr: i32,
-    pub	postd1: i32,
-    pub	mode: i32,
-    pub	currfac: i32,
-    pub	num_pointscans: i32,
-    pub	unitnr: i32,
-    pub	version: i32,
-    pub	gain: i32,
-    pub	img_data: Vec<f64>,
+    pub filepath: PathBuf,
+    pub img_num: i32,
+    pub img_id: String,
+    pub size: i32,
+    pub xres: i32,
+    pub yres: i32,
+    pub zres: i32,
+    pub datetime: DateTime<Utc>,
+    pub xsize: i32,
+    pub ysize: i32,
+    pub xoffset: i32,
+    pub yoffset: i32,
+    pub zscale: i32,
+    pub tilt: i32,
+    pub speed: f64,
+    pub line_time: f64,
+    pub bias: f64,
+    pub current: f64,
+    pub sample: String,
+    pub title: String,
+    pub postpr: i32,
+    pub postd1: i32,
+    pub mode: i32,
+    pub currfac: i32,
+    pub num_pointscans: i32,
+    pub unitnr: i32,
+    pub version: i32,
+    pub gain: i32,
+    pub img_data: Vec<f64>,
+}
+
+impl MulImage {
+    fn flip_img_data(&self) -> Vec<f64> {
+        let mut new: Vec<f64> = Vec::with_capacity((self.xres * self.yres) as usize);
+        for i in (0..self.yres).rev() {
+            let mut line = self.img_data[(i*512) as usize..((i+1)*512) as usize].to_owned();
+            new.append(&mut line);
+        }
+        new
+    }
+
+    pub fn save_png(&self) {
+        let min = self
+            .img_data
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+        let max = self
+            .img_data
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+        let diff = max - min;
+        let pixels: Vec<u8> = self.flip_img_data()
+            .iter()
+            .map(|x| ((x - min) / diff * 255.0) as u8)
+            .collect();
+        let out_name = format!("{}.png", self.img_id);
+        image::save_buffer(
+            out_name,
+            &pixels,
+            self.xres as u32,
+            self.yres as u32,
+            image::ColorType::L8,
+        )
+        .unwrap();
+    }
 }
 
 pub fn read_mul(filename: &str) -> Vec<MulImage> {
@@ -278,7 +317,6 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
     assert_eq! {block_counter * MUL_BLOCK, bytes.len() as i32};
     mul
 }
-
 
 #[cfg(test)]
 mod tests {
