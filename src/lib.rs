@@ -1,10 +1,11 @@
 use chrono::prelude::*;
 use chrono::{DateTime, Utc};
+use image;
+use nalgebra::{DMatrix, DVector};
 use std::fs::read;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::str;
-use image;
 
 // i16
 fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
@@ -114,7 +115,7 @@ impl MulImage {
     fn flip_img_data(&self) -> Vec<f64> {
         let mut new: Vec<f64> = Vec::with_capacity((self.xres * self.yres) as usize);
         for i in (0..self.yres).rev() {
-            let mut line = self.img_data[(i*512) as usize..((i+1)*512) as usize].to_owned();
+            let mut line = self.img_data[(i * 512) as usize..((i + 1) * 512) as usize].to_owned();
             new.append(&mut line);
         }
         new
@@ -132,7 +133,8 @@ impl MulImage {
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
         let diff = max - min;
-        let pixels: Vec<u8> = self.flip_img_data()
+        let pixels: Vec<u8> = self
+            .flip_img_data()
             .iter()
             .map(|x| ((x - min) / diff * 255.0) as u8)
             .collect();
@@ -145,6 +147,30 @@ impl MulImage {
             image::ColorType::L8,
         )
         .unwrap();
+    }
+
+    pub fn correct_plane(&mut self) -> &Self {
+        let xres = self.xres as usize;
+        let yres = self.yres as usize;
+
+        let img_data_vec = DVector::from_vec(self.img_data.clone());
+
+        let mut rhs = DMatrix::from_element(xres * yres, 3, 1.0);
+        let x_coords = DMatrix::from_fn(yres, xres, |_, j| j as f64);
+        let y_coords = DMatrix::from_fn(yres, xres, |i, _| i as f64);
+
+        rhs.set_column(1, &DVector::from_column_slice(x_coords.as_slice()));
+        rhs.set_column(2, &DVector::from_column_slice(y_coords.as_slice()));
+
+        let lstsq = rhs.svd(true, true).solve(&img_data_vec, 1e-14).unwrap();
+
+        let ones = DMatrix::from_element(yres, xres, 1.0);
+
+        let correction = ones * lstsq[0] + x_coords * lstsq[1] + y_coords * lstsq[2];
+
+        let corrected = DMatrix::from_vec(yres, xres, self.img_data.clone()) - correction;
+        self.img_data = corrected.as_slice().try_into().unwrap();
+        self
     }
 }
 
