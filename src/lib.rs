@@ -1,82 +1,12 @@
-use chrono::prelude::*;
-use chrono::{DateTime, Utc};
-use image;
-use nalgebra::{DMatrix, DVector};
 use std::fs::read;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::str;
 
-// i16
-fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
-    i16::from_le_bytes(buffer[..2].try_into().unwrap())
-}
-
-fn read_i16_le(cursor: &mut Cursor<&Vec<u8>>) -> i16 {
-    let mut buffer = [0; 2];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_i16_le_bytes(&buffer)
-}
-
-// i32
-fn read_i32_le_bytes(buffer: &[u8]) -> i32 {
-    i32::from_le_bytes(buffer[..4].try_into().unwrap())
-}
-
-fn read_i32_le(cursor: &mut Cursor<&Vec<u8>>) -> i32 {
-    let mut buffer = [0; 4];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_i32_le_bytes(&buffer)
-}
-
-// string
-fn read_mul_str(buffer: &[u8]) -> &str {
-    str::from_utf8(&buffer[..21]).unwrap()
-}
-
-fn read_string(cursor: &mut Cursor<&Vec<u8>>) -> String {
-    let mut buffer = [0; 21];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_mul_str(&buffer).to_owned()
-}
-
-// Image Data
-fn read_pixels(buffer: &[u8], zscale: i32) -> Vec<f64> {
-    let mut pixels: Vec<f64> = Vec::with_capacity(buffer.len() / 2);
-    let mut i = 0;
-    while i < buffer.len() {
-        let pixel = f64::from(read_i16_le_bytes(&buffer[i..i + 2])) * -0.1 / 1.36
-            * f64::from(zscale)
-            / 2000.0;
-        pixels.push(pixel);
-        i += 2;
-    }
-    pixels
-}
-
-fn read_img_data(cursor: &mut Cursor<&Vec<u8>>, num_pixels: i32, zscale: i32) -> Vec<f64> {
-    let mut buffer = vec![0; (num_pixels * 2) as usize];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_pixels(&buffer, zscale)
-}
-
-// Point Scan Data
-fn read_data_points(buffer: &[u8]) -> Vec<f64> {
-    let mut data_points: Vec<f64> = Vec::with_capacity(buffer.len() / 2);
-    let mut i = 0;
-    while i < buffer.len() {
-        let data_point = f64::from(read_i16_le_bytes(&buffer[i..i + 2]));
-        data_points.push(data_point);
-        i += 2;
-    }
-    data_points
-}
-
-fn read_point_scan(cursor: &mut Cursor<&Vec<u8>>, num_data_points: i32) -> Vec<f64> {
-    let mut buffer = vec![0; (num_data_points * 2) as usize];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_data_points(&buffer)
-}
+use chrono::prelude::*;
+use chrono::{DateTime, Utc};
+use image;
+use nalgebra::{DMatrix, DVector};
 
 #[derive(Debug)]
 pub struct MulImage {
@@ -149,20 +79,20 @@ impl MulImage {
         .unwrap();
     }
 
-    pub fn correct_plane(&mut self) -> &Self {
+    pub fn correct_plane(mut self) -> Self {
         let xres = self.xres as usize;
         let yres = self.yres as usize;
 
         let img_data_vec = DVector::from_vec(self.img_data.clone());
 
-        let mut rhs = DMatrix::from_element(xres * yres, 3, 1.0);
+        let mut coeffs = DMatrix::from_element(xres * yres, 3, 1.0);
         let x_coords = DMatrix::from_fn(yres, xres, |_, j| j as f64);
         let y_coords = DMatrix::from_fn(yres, xres, |i, _| i as f64);
 
-        rhs.set_column(1, &DVector::from_column_slice(x_coords.as_slice()));
-        rhs.set_column(2, &DVector::from_column_slice(y_coords.as_slice()));
+        coeffs.set_column(1, &DVector::from_column_slice(x_coords.as_slice()));
+        coeffs.set_column(2, &DVector::from_column_slice(y_coords.as_slice()));
 
-        let lstsq = rhs.svd(true, true).solve(&img_data_vec, 1e-14).unwrap();
+        let lstsq = coeffs.svd(true, true).solve(&img_data_vec, 1e-14).unwrap();
 
         let ones = DMatrix::from_element(yres, xres, 1.0);
 
@@ -172,6 +102,89 @@ impl MulImage {
         self.img_data = corrected.as_slice().try_into().unwrap();
         self
     }
+
+    pub fn correct_lines(mut self) -> Self {
+        let xres = self.xres as usize;
+        let yres = self.yres as usize;
+
+        let img_data_matrix = DMatrix::from_vec(yres, xres, self.img_data.clone());
+        let means = img_data_matrix.row_mean();
+        let correction = DMatrix::from_fn(yres, xres, |_, j| means[j]);
+        let corrected = img_data_matrix - correction;
+        self.img_data = corrected.as_slice().try_into().unwrap();
+        self
+    }
+}
+
+// i16
+fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
+    i16::from_le_bytes(buffer[..2].try_into().unwrap())
+}
+
+fn read_i16_le(cursor: &mut Cursor<&Vec<u8>>) -> i16 {
+    let mut buffer = [0; 2];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_i16_le_bytes(&buffer)
+}
+
+// i32
+fn read_i32_le_bytes(buffer: &[u8]) -> i32 {
+    i32::from_le_bytes(buffer[..4].try_into().unwrap())
+}
+
+fn read_i32_le(cursor: &mut Cursor<&Vec<u8>>) -> i32 {
+    let mut buffer = [0; 4];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_i32_le_bytes(&buffer)
+}
+
+// string
+fn read_mul_str(buffer: &[u8]) -> &str {
+    str::from_utf8(&buffer[..21]).unwrap()
+}
+
+fn read_string(cursor: &mut Cursor<&Vec<u8>>) -> String {
+    let mut buffer = [0; 21];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_mul_str(&buffer).to_owned()
+}
+
+// Image Data
+fn read_pixels(buffer: &[u8], zscale: i32) -> Vec<f64> {
+    let mut pixels: Vec<f64> = Vec::with_capacity(buffer.len() / 2);
+    let mut i = 0;
+    while i < buffer.len() {
+        let pixel = f64::from(read_i16_le_bytes(&buffer[i..i + 2])) * -0.1 / 1.36
+            * f64::from(zscale)
+            / 2000.0;
+        pixels.push(pixel);
+        i += 2;
+    }
+    pixels
+}
+
+fn read_img_data(cursor: &mut Cursor<&Vec<u8>>, num_pixels: i32, zscale: i32) -> Vec<f64> {
+    let mut buffer = vec![0; (num_pixels * 2) as usize];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_pixels(&buffer, zscale)
+}
+
+// Point Scan Data
+fn read_data_points(buffer: &[u8]) -> Vec<f64> {
+    let mut data_points: Vec<f64> = Vec::with_capacity(buffer.len() / 2);
+    let mut i = 0;
+    while i < buffer.len() {
+        let data_point = f64::from(read_i16_le_bytes(&buffer[i..i + 2]));
+        data_points.push(data_point);
+        i += 2;
+    }
+    data_points
+}
+
+fn read_point_scan(cursor: &mut Cursor<&Vec<u8>>, num_data_points: i32) -> Vec<f64> {
+    let mut buffer = vec![0; (num_data_points * 2) as usize];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_data_points(&buffer)
 }
 
 pub fn read_mul(filename: &str) -> Vec<MulImage> {
@@ -182,7 +195,7 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
     let bytes = read(filename).unwrap();
     let mut cursor = Cursor::new(&bytes);
 
-    let nr = read_i16_le(&mut cursor);
+    let _nr = read_i16_le(&mut cursor);
     let adr = read_i32_le(&mut cursor);
 
     if adr == 3 {
@@ -231,58 +244,55 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
         let unitnr = read_i16_le(&mut cursor);
         let version = read_i16_le(&mut cursor);
 
-        let spare_48 = read_i16_le(&mut cursor);
-        let spare_49 = read_i16_le(&mut cursor);
-        let spare_50 = read_i16_le(&mut cursor);
-        let spare_51 = read_i16_le(&mut cursor);
-        let spare_52 = read_i16_le(&mut cursor);
-        let spare_53 = read_i16_le(&mut cursor);
-        let spare_54 = read_i16_le(&mut cursor);
-        let spare_54 = read_i16_le(&mut cursor);
-        let spare_56 = read_i16_le(&mut cursor);
-        let spare_57 = read_i16_le(&mut cursor);
-        let spare_58 = read_i16_le(&mut cursor);
-        let spare_59 = read_i16_le(&mut cursor);
+        let _spare_48 = read_i16_le(&mut cursor);
+        let _spare_49 = read_i16_le(&mut cursor);
+        let _spare_50 = read_i16_le(&mut cursor);
+        let _spare_51 = read_i16_le(&mut cursor);
+        let _spare_52 = read_i16_le(&mut cursor);
+        let _spare_53 = read_i16_le(&mut cursor);
+        let _spare_54 = read_i16_le(&mut cursor);
+        let _spare_54 = read_i16_le(&mut cursor);
+        let _spare_56 = read_i16_le(&mut cursor);
+        let _spare_57 = read_i16_le(&mut cursor);
+        let _spare_58 = read_i16_le(&mut cursor);
+        let _spare_59 = read_i16_le(&mut cursor);
 
         let gain = read_i16_le(&mut cursor);
 
-        let spare_61 = read_i16_le(&mut cursor);
-        let spare_62 = read_i16_le(&mut cursor);
-        let spare_63 = read_i16_le(&mut cursor);
+        let _spare_61 = read_i16_le(&mut cursor);
+        let _spare_62 = read_i16_le(&mut cursor);
+        let _spare_63 = read_i16_le(&mut cursor);
 
         let img_data = read_img_data(
             &mut cursor,
             (xres as i32 * yres as i32).into(),
             zscale.into(),
         );
-        // println!("img data: {:#?}", img_data);
-        // println!("img data first: {}", img_data[0]);
-        // println!("len img data: {:#?}", img_data.len());
 
         if num_pointscans > 0 {
             for _ in 0..num_pointscans {
-                let ps_size = read_i16_le(&mut cursor);
-                let ps_type = read_i16_le(&mut cursor);
-                let ps_time4scan = read_i16_le(&mut cursor);
-                let ps_minv = read_i16_le(&mut cursor);
-                let ps_maxv = read_i16_le(&mut cursor);
-                let ps_xpos = read_i16_le(&mut cursor);
-                let ps_ypos = read_i16_le(&mut cursor);
-                let ps_dz = read_i16_le(&mut cursor);
-                let ps_delay = read_i16_le(&mut cursor);
-                let ps_version = read_i16_le(&mut cursor);
-                let ps_indendelay = read_i16_le(&mut cursor);
-                let ps_xposend = read_i16_le(&mut cursor);
-                let ps_yposend = read_i16_le(&mut cursor);
-                let ps_vt_fw = read_i16_le(&mut cursor);
-                let ps_it_fw = read_i16_le(&mut cursor);
-                let ps_vt_bw = read_i16_le(&mut cursor);
-                let ps_it_bw = read_i16_le(&mut cursor);
-                let ps_lscan = read_i16_le(&mut cursor);
+                let _ps_size = read_i16_le(&mut cursor);
+                let _ps_type = read_i16_le(&mut cursor);
+                let _ps_time4scan = read_i16_le(&mut cursor);
+                let _ps_minv = read_i16_le(&mut cursor);
+                let _ps_maxv = read_i16_le(&mut cursor);
+                let _ps_xpos = read_i16_le(&mut cursor);
+                let _ps_ypos = read_i16_le(&mut cursor);
+                let _ps_dz = read_i16_le(&mut cursor);
+                let _ps_delay = read_i16_le(&mut cursor);
+                let _ps_version = read_i16_le(&mut cursor);
+                let _ps_indendelay = read_i16_le(&mut cursor);
+                let _ps_xposend = read_i16_le(&mut cursor);
+                let _ps_yposend = read_i16_le(&mut cursor);
+                let _ps_vt_fw = read_i16_le(&mut cursor);
+                let _ps_it_fw = read_i16_le(&mut cursor);
+                let _ps_vt_bw = read_i16_le(&mut cursor);
+                let _ps_it_bw = read_i16_le(&mut cursor);
+                let _ps_lscan = read_i16_le(&mut cursor);
 
-                cursor.seek(SeekFrom::Current((MUL_BLOCK - 18 * 2) as i64));
+                let _ = cursor.seek(SeekFrom::Current((MUL_BLOCK - 18 * 2) as i64));
 
-                let ps_data = read_point_scan(&mut cursor, ps_size as i32);
+                let _ps_data = read_point_scan(&mut cursor, _ps_size as i32);
             }
         }
 
