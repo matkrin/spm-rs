@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::fs::read;
-use std::io::{Cursor};
+use std::io::Cursor;
 use std::str;
 
-use crate::utils::{read_string, read_magic_header, read_u32_le, read_matrix_string, skip, read_matrix_type, read_f64_le};
+use crate::utils::{
+    read_f64_le, read_magic_header, read_matrix_string, read_matrix_type, read_string, read_u32_le,
+    skip,
+};
 
 pub fn read_omicron_matrix_paramfile(filename: &str) {
     let bytes = read(filename).unwrap();
@@ -61,7 +64,7 @@ enum MatrixType {
 }
 
 fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let ident: String = read_string(cursor, 4).chars().rev().collect();
+    let ident: String = read_matrix_type(cursor);
     // println!("ident: {}", ident);
 
     match ident.as_str() {
@@ -335,12 +338,12 @@ fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     println!("DICT len: {}", _len);
 
-    let _ = read_u32_le(cursor);  // no time in here
+    let _ = read_u32_le(cursor); // no time in here
     let _unused = read_u32_le(cursor);
 
     let n_first = read_u32_le(cursor);
     for _ in 0..n_first {
-        skip(cursor, 16);  // could also be 4 different u32
+        skip(cursor, 16); // could also be 4 different u32
         let _s1 = read_matrix_string(cursor);
         let _s2 = read_matrix_string(cursor);
     }
@@ -360,9 +363,8 @@ fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
     let n_third = read_u32_le(cursor);
     for _ in 0..n_third {
-        skip(cursor, 16);  // could be 4 times u32
+        skip(cursor, 16); // could be 4 times u32
         let _s3 = read_matrix_string(cursor);
-        
     }
     IdentBlock::DICT(hm)
 }
@@ -387,7 +389,6 @@ fn read_chcs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         // println!("d: {}", d);
         let _e = read_u32_le(cursor);
         // println!("e: {}", e);
-
     }
 
     let n_second = read_u32_le(cursor);
@@ -453,7 +454,7 @@ fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
         let len_inner = read_u32_le(cursor);
         for _ in 0..len_inner {
-            let prop = read_matrix_string(cursor); 
+            let prop = read_matrix_string(cursor);
             let matrix_type = read_matrix_type(cursor);
             let value = match matrix_type.as_str() {
                 "BOOL" => MatrixType::BOOL(read_u32_le(cursor)),
@@ -463,7 +464,6 @@ fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
                 _ => unreachable!(),
             };
             hm.insert(format!("{}.{} [{}]", name, prop, unit), value);
-
         }
         position = cursor.position();
     }

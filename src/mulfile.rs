@@ -151,7 +151,7 @@ fn read_string(cursor: &mut Cursor<&Vec<u8>>) -> String {
 }
 
 // Image Data
-fn read_pixels(buffer: &[u8], zscale: i32) -> Vec<f64> {
+fn read_mul_pixels(buffer: &[u8], zscale: i32) -> Vec<f64> {
     let mut pixels: Vec<f64> = Vec::with_capacity(buffer.len() / 2);
     let mut i = 0;
     while i < buffer.len() {
@@ -164,10 +164,10 @@ fn read_pixels(buffer: &[u8], zscale: i32) -> Vec<f64> {
     pixels
 }
 
-fn read_img_data(cursor: &mut Cursor<&Vec<u8>>, num_pixels: i32, zscale: i32) -> Vec<f64> {
+fn read_mul_img_data(cursor: &mut Cursor<&Vec<u8>>, num_pixels: i32, zscale: i32) -> Vec<f64> {
     let mut buffer = vec![0; (num_pixels * 2) as usize];
     cursor.read_exact(&mut buffer).unwrap();
-    read_pixels(&buffer, zscale)
+    read_mul_pixels(&buffer, zscale)
 }
 
 // Point Scan Data
@@ -264,7 +264,7 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
         let _spare_62 = read_i16_le(&mut cursor);
         let _spare_63 = read_i16_le(&mut cursor);
 
-        let img_data = read_img_data(
+        let img_data = read_mul_img_data(
             &mut cursor,
             (xres as i32 * yres as i32).into(),
             zscale.into(),
