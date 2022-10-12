@@ -3,7 +3,7 @@ use std::fs::read;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::str;
 
-pub fn read_omicron_matrix(filename: &str) {
+pub fn read_omicron_matrix_paramfile(filename: &str) {
     let bytes = read(filename).unwrap();
     let mut cursor = Cursor::new(&bytes);
     let magic_header = read_magic_header(&mut cursor);
@@ -13,7 +13,7 @@ pub fn read_omicron_matrix(filename: &str) {
     let mut position = 0;
     while position < file_length as u64 {
         let i = read_ident_block(&mut cursor);
-        // println!("i: {:?}", i);
+        println!("i: {:?}", i);
         position = cursor.position();
     }
 }
@@ -24,22 +24,22 @@ enum IdentBlock {
     EXPD(String),
     FSEQ(String),
     EXPS(String),
-    EEPA(String),
+    EEPA(HashMap<String, MatrixType>),
     INCI(String),
     MARK(String),
     VIEW(String),
     PROC(String),
-    PMOD(String),
+    PMOD(HashMap<String, MatrixType>),
     CCSY(String),
     BREF(String),
     EOED(bool),
     INST(HashMap<String, String>),
     CNXS(HashMap<String, String>),
-    GENL(String),
-    DICT(String),
+    DICT(HashMap<String, u32>),
     CHCS(String),
+    XFER(HashMap<String, MatrixType>),
     SCAN(String),
-    XFER(String),
+    _GENL(String),
 }
 
 #[derive(Debug)]
@@ -78,15 +78,19 @@ fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         "EOED" => read_eoed(cursor),
         "INST" => read_inst(cursor),
         "CNXS" => read_cnxs(cursor),
+        "DICT" => read_dict(cursor),
+        "CHCS" => read_chcs(cursor),
+        "SCAN" => read_scan(cursor),
+        "XFER" => read_xfer(cursor),
         _ => unimplemented!(),
     }
 }
 
 // META
 fn read_meta(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
 
     let program_name = read_matrix_string(cursor);
     let version = read_matrix_string(cursor);
@@ -109,11 +113,11 @@ fn read_meta(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 //EXPD
 fn read_expd(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
 
-    let _ = read_u32_le(cursor);
+    skip(cursor, 4);
 
     let mut content = String::new();
     for _ in 0..7 {
@@ -136,13 +140,13 @@ fn read_fseq(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // therefore len of exps contains len of inst and CNXS
 // reading of those blocks is also handled by read_ident_block
 fn read_exps(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
     skip(cursor, 8);
 
     // not sure what this is good for
-    let a = read_u32_le(cursor);
+    let _a = read_u32_le(cursor);
     // println!("a: {}", a);
     let b = read_matrix_string(cursor);
     let c = read_matrix_string(cursor);
@@ -202,38 +206,23 @@ fn read_cnxs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // EEPA
 fn read_eepa(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    // println!("len: {}", len);
-    let time = read_u32_le(cursor);
-    // println!("time: {}", time);
-    let unbytes = read_u32_le(cursor);
-    // println!("unbytes: {}", unbytes);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
 
-    // skip 4 bytes
-    let skip = read_u32_le(cursor);
-    // println!("skip: {}", skip);
+    skip(cursor, 4);
 
-    let c_len = read_u32_le(cursor);
-    // println!("c_len: {}", c_len);
+    let len_outer = read_u32_le(cursor);
 
-    let mut z = String::new();
-    for _ in 0..c_len {
-        // let len_d = read_u32_le(cursor);
-        // println!("len_d: {}", len_d);
+    let mut hm: HashMap<String, MatrixType> = HashMap::new();
+    for _ in 0..len_outer {
         let inst = read_matrix_string(cursor);
-        // println!("inst: {}", inst);
-
-        let len_e = read_u32_le(cursor);
-        // println!{"len e: {}", len_e}
-
-        for _ in 0..len_e {
+        let len_inner = read_u32_le(cursor);
+        for _ in 0..len_inner {
             let prop = read_matrix_string(cursor);
-            // println!("prop: {}", prop);
             let unit = read_matrix_string(cursor);
-            // println!("unit: {}", unit);
-            z += &prop;
-            z += &unit;
-            let empty1 = read_u32_le(cursor);
+            // don't know if this is useful
+            let _empty = read_u32_le(cursor);
             let matrix_type: String = read_matrix_type(cursor);
             let value = match matrix_type.as_str() {
                 "BOOL" => MatrixType::BOOL(read_u32_le(cursor)),
@@ -242,134 +231,260 @@ fn read_eepa(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
                 "DOUB" => MatrixType::DOUB(read_f64_le(cursor)),
                 _ => unimplemented!(),
             };
-            // println!{"matrix type: {}", matrix_type};
-            // println!{"value: {:?}", value};
+            hm.insert(format!("{}.{} [{}]", inst, prop, unit), value);
         }
-        z += &inst;
     }
-    IdentBlock::EEPA(z)
+    IdentBlock::EEPA(hm)
 }
 
 // INCI
+// state of experiment
 fn read_inci(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    // println!("len inci: {}", len);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
 
-    let _ = read_u32_le(cursor);
-    let _ = read_u32_le(cursor);
     let _ = read_u32_le(cursor);
     let _ = read_u32_le(cursor);
     IdentBlock::INCI("".to_string())
 }
 
 // MARK
+// calibration of system
 fn read_mark(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
 
     let content = read_matrix_string(cursor);
     IdentBlock::MARK(content)
 }
 
 // VIEW
+// scanning windows settings
 fn read_view(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let len = read_u32_le(cursor);
-    // println!("VIEW len: {}", len);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
-    // let content = read_matrix_string(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
+
     let content = read_string(cursor, len as usize);
-    // println!("VIEW content: {}", content);
-    IdentBlock::VIEW(".".to_string())
+    IdentBlock::VIEW(content)
 }
 
 // PROC
+// processors of scanning windows (plugins, e.g. CurveAverager, Despiker)
 fn read_proc(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let len = read_u32_le(cursor);
-    // println!("PROC len: {}", len);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
 
-    // let content = read_matrix_string(cursor);
     let content = read_string(cursor, len as usize);
-    // println!("PROC content: {}", content);
-    IdentBlock::PROC(".".to_string())
+    IdentBlock::PROC(content)
 }
 
 // PMOD
 fn read_pmod(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    // println!("PMOD len: {}", len);
-    let time = read_u32_le(cursor);
-    // println!("PMOD time: {}", time);
-    let unbytes = read_u32_le(cursor);
-    // println!("PMOD unbytes: {}", unbytes);
-    // let content = read_matrix_string(cursor);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
+    skip(cursor, 4);
 
-    let _ = read_u32_le(cursor);
-    // for _ in 0..len as usize {
-    //     let content = read_matrix_string(cursor);
-    //     println!("PMOD content: {}", content);
-    // }
     let category = read_matrix_string(cursor);
-    // println!("PMOD category: {}", category);
-
-    let name = read_matrix_string(cursor);
-    // println!("PMOD name: {}", name);
-
+    let prop = read_matrix_string(cursor);
     let unit = read_matrix_string(cursor);
-    // println!("PMOD unit: {}", unit);
 
-    let _ = read_u32_le(cursor);
-
+    skip(cursor, 4);
     let matrix_type = read_matrix_type(cursor);
-    // println!("matrix_type : {}", matrix_type);
 
     let value = match matrix_type.as_str() {
         "BOOL" => MatrixType::BOOL(read_u32_le(cursor)),
         "LONG" => MatrixType::LONG(read_u32_le(cursor)),
         "STRG" => MatrixType::STRG(read_matrix_string(cursor)),
         "DOUB" => MatrixType::DOUB(read_f64_le(cursor)),
-        _ => unimplemented!(),
+        _ => unreachable!(),
     };
-    // println!("value: {:?}", value);
-    let _ = read_u32_le(cursor);
+    skip(cursor, 4);
 
-    IdentBlock::PMOD(".".to_string())
+    let mut hm: HashMap<String, MatrixType> = HashMap::new();
+    hm.insert(format!("{}.{} [{}]", category, prop, unit), value);
+    IdentBlock::PMOD(hm)
 }
 
-//CCSY
+// CCSY
+// has nested blocks DICT, CHCS, SCAN, XFER
 fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let len = read_u32_le(cursor);
-    // println!("CCSY len: {}", len);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    println!("CCSY len: {}", len);
+    let _time = read_u32_le(cursor);
+    let _unused = read_u32_le(cursor);
 
-    skip(cursor, len as u64);
+    skip(cursor, 4);
+
+    // let inner_block = read_matrix_type(cursor);
+    // println!("inner: {}", inner_block);
+    // skip(cursor, len as u64);
 
     IdentBlock::CCSY("".to_string())
 }
 
+// DICT
+// nested in CCSY
+fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+    let _len = read_u32_le(cursor);
+    println!("DICT len: {}", _len);
+
+    let _ = read_u32_le(cursor);  // no time in here
+    let _unused = read_u32_le(cursor);
+
+    let n_first = read_u32_le(cursor);
+    for _ in 0..n_first {
+        skip(cursor, 16);  // could also be 4 different u32
+        let _s1 = read_matrix_string(cursor);
+        let _s2 = read_matrix_string(cursor);
+    }
+
+    let n_second = read_u32_le(cursor);
+    let mut hm: HashMap<String, u32> = HashMap::new();
+    for _ in 0..n_second {
+        skip(cursor, 4);
+        // This seems to be some info about channels
+        let channel_num = read_u32_le(cursor);
+        skip(cursor, 8);
+
+        let channel = read_matrix_string(cursor);
+        let unit = read_matrix_string(cursor);
+        hm.insert(format!("{} [{}]", channel, unit), channel_num);
+    }
+
+    let n_third = read_u32_le(cursor);
+    for _ in 0..n_third {
+        skip(cursor, 16);  // could be 4 times u32
+        let _s3 = read_matrix_string(cursor);
+        
+    }
+    IdentBlock::DICT(hm)
+}
+
+// CHCS
+// netsted in CCSY
+fn read_chcs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+    println!("positin start CHCS: {}", cursor.position());
+    let _len = read_u32_le(cursor);
+    println!("CHCS len: {}", _len);
+
+    let n_first = read_u32_le(cursor);
+    // println!("n_first: {}", n_first);
+    for _ in 0..n_first {
+        let _a = read_u32_le(cursor);
+        // println!("a: {}", a);
+        let _b = read_u32_le(cursor);
+        // println!("b: {}", b);
+        let _c = read_u32_le(cursor);
+        // println!("c: {}", c);
+        let _d = read_u32_le(cursor);
+        // println!("d: {}", d);
+        let _e = read_u32_le(cursor);
+        // println!("e: {}", e);
+
+    }
+
+    let n_second = read_u32_le(cursor);
+    // println!("n_sec: {}", n_second);
+    for _ in 0..n_second {
+        let _f = read_u32_le(cursor);
+        // println!("f: {}", f);
+        let _g = read_u32_le(cursor);
+        // println!("g: {}", g);
+        let _h = read_u32_le(cursor);
+        // println!("h: {}", h);
+        let _i = read_u32_le(cursor);
+        // println!("i: {}", i);
+    }
+
+    let n_third = read_u32_le(cursor);
+    // println!("n_third: {}", n_third);
+    for _ in 0..n_third {
+        let _j = read_u32_le(cursor);
+        // println!("j: {}", j);
+        let _k = read_u32_le(cursor);
+        // println!("k: {}", k);
+        let _l = read_u32_le(cursor);
+        // println!("l: {}", l);
+        let _m = read_u32_le(cursor);
+        // println!("m: {}", m);
+    }
+    println!("position end CHCS: {}", cursor.position());
+    IdentBlock::CHCS("".to_string())
+}
+
+// SCAN
+// netsted in CCSY
+fn read_scan(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+    let _len = read_u32_le(cursor);
+    // println!("SCAN len: {}", _len);
+    //
+    // let n = read_u32_le(cursor);  // no time in here
+    // println!("SCAN n: {}", n);
+    // for _ in 0..n {
+    // }
+
+    skip(cursor, _len as u64);
+    IdentBlock::SCAN("".to_string())
+}
+
+// XFER
+// netsted in CCSY
+fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+    let _len = read_u32_le(cursor);
+    println!("XFER len: {}", _len);
+
+    let mut position = cursor.position();
+    let end = position + _len as u64;
+
+    let mut hm: HashMap<String, MatrixType> = HashMap::new();
+    while position < end {
+        skip(cursor, 4);
+        let _n = read_u32_le(cursor);
+        // println!("n: {}", _n);
+        let name = read_matrix_string(cursor);
+        let unit = read_matrix_string(cursor);
+
+        let len_inner = read_u32_le(cursor);
+        for _ in 0..len_inner {
+            let prop = read_matrix_string(cursor); 
+            let matrix_type = read_matrix_type(cursor);
+            let value = match matrix_type.as_str() {
+                "BOOL" => MatrixType::BOOL(read_u32_le(cursor)),
+                "LONG" => MatrixType::LONG(read_u32_le(cursor)),
+                "STRG" => MatrixType::STRG(read_matrix_string(cursor)),
+                "DOUB" => MatrixType::DOUB(read_f64_le(cursor)),
+                _ => unreachable!(),
+            };
+            hm.insert(format!("{}.{} [{}]", name, prop, unit), value);
+
+        }
+        position = cursor.position();
+    }
+    IdentBlock::XFER(hm)
+}
+
 // BREF
 fn read_bref(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unbytes = read_u32_le(cursor);
 
-    let _ = read_u32_le(cursor);
+    skip(cursor, 4);
 
     let filename = read_matrix_string(cursor);
-    // println!("filename : {}", filename);
-
-    IdentBlock::BREF("".to_string())
+    IdentBlock::BREF(filename)
 }
 
 // EOED
 fn read_eoed(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
-    let time = read_u32_le(cursor);
-    let unbytes = read_u32_le(cursor);
+    let _len = read_u32_le(cursor);
+    let _time = read_u32_le(cursor);
+    let _unbytes = read_u32_le(cursor);
     println!("End of file");
 
     IdentBlock::EOED(true)
@@ -433,6 +548,16 @@ fn read_u32_le(cursor: &mut Cursor<&Vec<u8>>) -> u32 {
     let mut buffer = [0; 4];
     cursor.read_exact(&mut buffer).unwrap();
     read_u32_le_bytes(&buffer)
+}
+
+fn read_u64_le_bytes(buffer: &[u8]) -> u64 {
+    u64::from_le_bytes(buffer[..8].try_into().unwrap())
+}
+
+fn read_u64_le(cursor: &mut Cursor<&Vec<u8>>) -> u64 {
+    let mut buffer = [0; 8];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_u64_le_bytes(&buffer)
 }
 
 fn read_f64_le_bytes(buffer: &[u8]) -> f64 {

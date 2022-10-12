@@ -1,5 +1,5 @@
 // use mulfile_rs::read_mul;
-use mulfile_rs::read_omicron_matrix;
+use mulfile_rs::read_omicron_matrix_paramfile;
 
 
 fn main() {
@@ -9,6 +9,6 @@ fn main() {
     //     i.correct_plane().correct_lines().save_png();
     // }
 
-    read_omicron_matrix("20201111_0001.mtrx");
+    read_omicron_matrix_paramfile("20201111_0001.mtrx");
 
 }
