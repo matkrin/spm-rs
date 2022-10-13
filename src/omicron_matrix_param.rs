@@ -8,7 +8,7 @@ use crate::utils::{
     skip,
 };
 
-pub fn read_omicron_matrix_paramfile(filename: &str) {
+pub fn read_omicron_matrix_paramfile(filename: &str) -> Vec<IdentBlock> {
     let bytes = read(filename).unwrap();
     let mut cursor = Cursor::new(&bytes);
     let magic_header = read_magic_header(&mut cursor);
@@ -16,15 +16,17 @@ pub fn read_omicron_matrix_paramfile(filename: &str) {
 
     let file_length = bytes.len();
     let mut position = 0;
+    let mut v = Vec::new();
     while position < file_length as u64 {
-        let i = read_ident_block(&mut cursor);
-        println!("i: {:?}", i);
+        v.push(read_ident_block(&mut cursor));
         position = cursor.position();
     }
+    // println!("v: {:#?}", v);
+    v
 }
 
 #[derive(Debug)]
-enum IdentBlock {
+pub enum IdentBlock {
     META(META),
     EXPD(String),
     FSEQ(String),
@@ -48,7 +50,7 @@ enum IdentBlock {
 }
 
 #[derive(Debug)]
-struct META {
+pub struct META {
     program_name: String,
     version: String,
     profile: String,
@@ -56,7 +58,7 @@ struct META {
 }
 
 #[derive(Debug)]
-enum MatrixType {
+pub enum MatrixType {
     BOOL(u32),
     LONG(u32),
     STRG(String),
@@ -112,7 +114,6 @@ fn read_meta(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         profile,
         user,
     };
-    println!("meta: {:?}", meta);
     IdentBlock::META(meta)
 }
 
@@ -319,7 +320,7 @@ fn read_pmod(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // has nested blocks DICT, CHCS, SCAN, XFER
 fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let len = read_u32_le(cursor);
-    println!("CCSY len: {}", len);
+    // println!("CCSY len: {}", len);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
 
@@ -336,7 +337,7 @@ fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // nested in CCSY
 fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
-    println!("DICT len: {}", _len);
+    // println!("DICT len: {}", _len);
 
     let _ = read_u32_le(cursor); // no time in here
     let _unused = read_u32_le(cursor);
@@ -372,9 +373,8 @@ fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // CHCS
 // netsted in CCSY
 fn read_chcs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    println!("positin start CHCS: {}", cursor.position());
     let _len = read_u32_le(cursor);
-    println!("CHCS len: {}", _len);
+    // println!("CHCS len: {}", _len);
 
     let n_first = read_u32_le(cursor);
     // println!("n_first: {}", n_first);
@@ -416,7 +416,6 @@ fn read_chcs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         let _m = read_u32_le(cursor);
         // println!("m: {}", m);
     }
-    println!("position end CHCS: {}", cursor.position());
     IdentBlock::CHCS("".to_string())
 }
 
@@ -439,7 +438,7 @@ fn read_scan(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // netsted in CCSY
 fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
-    println!("XFER len: {}", _len);
+    // println!("XFER len: {}", _len);
 
     let mut position = cursor.position();
     let end = position + _len as u64;

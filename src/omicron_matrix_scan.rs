@@ -1,9 +1,15 @@
+use std::collections::HashMap;
 use std::fs::read;
 use std::io::Cursor;
-use std::io::Read;
+use std::mem::size_of;
 use std::str;
 
-use crate::utils::{read_magic_header, read_matrix_type, read_u32_le, skip, read_u64_le, read_matrix_string};
+use chrono::prelude::*;
+use chrono::Utc;
+
+use crate::utils::{
+    read_magic_header, read_matrix_string, read_matrix_type, read_u32_le, read_u64_le, skip,
+};
 
 pub fn read_omicron_matrix_scanfile(filename: &str) {
     let bytes = read(filename).unwrap();
@@ -12,7 +18,7 @@ pub fn read_omicron_matrix_scanfile(filename: &str) {
     assert_eq!(magic_header, "ONTMATRX0101");
 
     let file_length = bytes.len();
-    println!("file length: {}", file_length);
+    // println!("file length: {}", file_length);
     let mut position = 0;
     while position < file_length as u64 {
         let i = read_ident_block(&mut cursor);
@@ -24,9 +30,9 @@ pub fn read_omicron_matrix_scanfile(filename: &str) {
 
 #[derive(Debug)]
 enum IdentBlock {
-    BKLT(String),
-    DESC(String),
-    DATA(String),
+    BKLT(DateTime<Utc>),
+    DESC(HashMap<String, u32>),
+    DATA(Vec<u32>),
 }
 
 fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
@@ -43,55 +49,58 @@ fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 fn read_bklt(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
-    println!("BKLT len: {}", _len);
-    let _time = read_u32_le(cursor);
-    println!("BKLT time: {}", _time);
+    // println!("BKLT len: {}", _len);
+
+    // Time when image finished
+    let time = read_u32_le(cursor);
+    println!("BKLT time: {}", time);
     let _unused = read_u32_le(cursor);
-    println!("BKLT un: {}", _unused);
+    // println!("BKLT un: {}", _unused);
 
     skip(cursor, 4);
-    IdentBlock::BKLT("".to_string())
+
+    let t = Utc.timestamp(time as i64, 0);
+    // println!("Datetime: {}", t.with_timezone(&FixedOffset::east(1*3600)).to_string());
+    IdentBlock::BKLT(t)
 }
 
 fn read_desc(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let channel_hash = read_u64_le(cursor);
     println!("DESC channel hash: {}", channel_hash);
-    skip(cursor, 12);
-    skip(cursor, 4);
+    skip(cursor, 16);
 
-    let num_points_set = read_u32_le(cursor);
-    let num_points_scanned = read_u32_le(cursor);
-    println!("DESC points set: {}", num_points_set);
-    println!("DESC points got: {}", num_points_scanned);
+    let mut hm: HashMap<String, u32> = HashMap::new();
+    hm.insert("num_points_set".to_string(), read_u32_le(cursor));
+    hm.insert("num_points_scanned".to_string(), read_u32_le(cursor));
 
-    // SI32
-    let matrix_type = read_matrix_string(cursor);
-    println!("DESC matrix type: {}", matrix_type);
+    // "SI32" don't know how this is useful
+    let _matrix_type = read_matrix_string(cursor);
+    println!("DESC matrix type: {}", _matrix_type);
 
-    let num_images = read_u32_le(cursor);
-    println!("num images: {}", num_images);
+    // It seems also empty channels with no data listed here
+    hm.insert("num_img_channels".to_string(), read_u32_le(cursor));
 
     skip(cursor, 8);
 
-    let num_points_set_alt = read_u32_le(cursor);
-    println!("num points set alt: {}", num_points_set_alt);
+    hm.insert("num_points_set_alt".to_string(), read_u32_le(cursor));
 
-    IdentBlock::DESC("".to_string())
+    // println!("DESC hm: {:#?}", hm);
+    IdentBlock::DESC(hm)
 }
 
+// TODO: num images
 fn read_data(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let len = read_u32_le(cursor);
-    println!("DATA len: {}", len);
+    // println!("DATA len: {}", len);
+    let vec_len = len / size_of::<u32>() as u32;
 
-    let mut v = Vec::new();
-    for _ in 0..len / 4 {
+    let mut v = Vec::with_capacity(vec_len as usize);
+    // TODO: this is the data for all channels
+    // DESC shows 4 image channels but the data points here are 2 x 160_000 (2 400x400 pixel images)
+    for _ in 0..vec_len {
         v.push(read_u32_le(cursor));
     }
-    println!("end of loop");
-    println!("vec len: {}", &v[1]);
-    // let a = read_matrix_type(cursor);
-    // println!("a: {}", a);
-    println!("end: {}", cursor.position());
 
-    IdentBlock::DATA("".to_string())
+    // return all data here, then with info from paramfile split it for use in seperate images
+    IdentBlock::DATA(v)
 }
