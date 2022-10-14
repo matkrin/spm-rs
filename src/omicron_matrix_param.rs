@@ -8,29 +8,13 @@ use crate::utils::{
     skip,
 };
 
-pub fn read_omicron_matrix_paramfile(filename: &str) -> Vec<IdentBlock> {
-    let bytes = read(filename).unwrap();
-    let mut cursor = Cursor::new(&bytes);
-    let magic_header = read_magic_header(&mut cursor);
-    assert_eq!(magic_header, "ONTMATRX0101");
-
-    let file_length = bytes.len();
-    let mut position = 0;
-    let mut v = Vec::new();
-    while position < file_length as u64 {
-        v.push(read_ident_block(&mut cursor));
-        position = cursor.position();
-    }
-    // println!("v: {:#?}", v);
-    v
-}
-
 #[derive(Debug)]
 pub enum IdentBlock {
-    META(META),
+    META(HashMap<String, String>),
     EXPD(String),
     FSEQ(String),
     EXPS(String),
+    GENL(String),
     EEPA(HashMap<String, MatrixType>),
     INCI(String),
     MARK(String),
@@ -46,15 +30,6 @@ pub enum IdentBlock {
     CHCS(String),
     XFER(HashMap<String, MatrixType>),
     SCAN(String),
-    _GENL(String),
-}
-
-#[derive(Debug)]
-pub struct META {
-    program_name: String,
-    version: String,
-    profile: String,
-    user: String,
 }
 
 #[derive(Debug)]
@@ -63,6 +38,195 @@ pub enum MatrixType {
     LONG(u32),
     STRG(String),
     DOUB(f64),
+}
+
+#[derive(Debug)]
+pub struct ParamInfo {
+    current: f64,
+    bias: f64,
+    xsize: f64,
+    ysize: f64,
+    xres: u32,
+    yres: u32,
+    rotation: u32,
+    raster_time: f64,
+    xoffset: f64,
+    yoffset: f64,
+    xretrace: bool,
+    yretrace: bool,
+}
+
+static CURRENT: &'static str = "Regulator.Setpoint_1 [Ampere]";
+static _CURRENT_ALT: &'static str = "Regulator.Alternate_Setpoint_1 [Ampere]";
+static BIAS: &'static str = "GapVoltageControl.Voltage [Volt]";
+static XSIZE: &'static str = "XYScanner.Width [Meter]";
+static YSIZE: &'static str = "XYScanner.Height [Meter]";
+static XRES: &'static str = "XYScanner.Points [Count]";
+static YRES: &'static str = "XYScanner.Lines [Count]";
+static ROTATION: &'static str = "XYScanner.Angle [Degree]";
+static RASTER_TIME: &'static str = "XYScanner.Raster_Time [Second]";
+static XOFFSET: &'static str = "XYScanner.X_Offset [Meter]";
+static YOFFSET: &'static str = "XYScanner.Y_Offset [Meter]";
+static XRETRACE: &'static str = "XYScanner.X_Retrace [--]";
+static YRETRACE: &'static str = "XYScanner.Y_Retrace [--]";
+
+pub fn read_omicron_matrix_paramfile(filename: &str) -> ParamInfo {
+    let bytes = read(filename).unwrap();
+    let mut cursor = Cursor::new(&bytes);
+    let magic_header = read_magic_header(&mut cursor);
+    assert_eq!(magic_header, "ONTMATRX0101");
+
+    let file_length = bytes.len();
+
+    let mut current = 0.0;
+    let mut bias = 0.0;
+    let mut xsize = 0.0;
+    let mut ysize = 0.0;
+    let mut xres: u32 = 0;
+    let mut yres: u32 = 0;
+    let mut rotation: u32 = 0;
+    let mut raster_time = 0.0;
+    let mut xoffset = 0.0;
+    let mut yoffset = 0.0;
+    let mut xretrace = false;
+    let mut yretrace = false;
+
+    let mut position = 0;
+    while position < file_length as u64 {
+
+        // 1. read EEPA which gives initial values, in EEPA all keys should be in one Hashmap
+        // 2. change initial values if the PMOD with the key for this value appears
+        // 3. break if BREF with filename to look appears
+        // => therefore values are always the ones from last PMOD, which should be right
+
+        let block = read_ident_block(&mut cursor);
+        match block {
+            IdentBlock::EEPA(hm) => {
+                if let MatrixType::DOUB(x) = hm[CURRENT] {
+                    current = x;
+                }
+                if let MatrixType::DOUB(x) = hm[BIAS] {
+                    bias = x;
+                }
+                if let MatrixType::DOUB(x) = hm[XSIZE] {
+                    xsize = x;
+                }
+                if let MatrixType::DOUB(x) = hm[YSIZE] {
+                    ysize = x;
+                }
+                if let MatrixType::LONG(x) = hm[XRES] {
+                    xres = x;
+                }
+                if let MatrixType::LONG(x) = hm[YRES] {
+                    yres = x;
+                }
+                if let MatrixType::LONG(x) = hm[ROTATION] {
+                    rotation = x;
+                }
+                if let MatrixType::DOUB(x) = hm[RASTER_TIME] {
+                    raster_time = x;
+                }
+                if let MatrixType::DOUB(x) = hm[XOFFSET] {
+                    xoffset = x;
+                }
+                if let MatrixType::DOUB(x) = hm[YOFFSET] {
+                    yoffset = x;
+                }
+                if let MatrixType::BOOL(x) = hm[XRETRACE] {
+                    xretrace = if x == 0 { false } else { true };
+                }
+                if let MatrixType::BOOL(x) = hm[YRETRACE] {
+                    yretrace = if x == 0 { false } else { true };
+                }
+            }
+            IdentBlock::PMOD(hm) => {
+                if hm.contains_key(CURRENT) {
+                    if let MatrixType::DOUB(x) = hm[CURRENT] {
+                        current = x;
+                    }
+                } else if hm.contains_key(BIAS) {
+                    if let MatrixType::DOUB(x) = hm[BIAS] {
+                        bias = x;
+                    }
+                } else if hm.contains_key(XSIZE) {
+                    if let MatrixType::DOUB(x) = hm[XSIZE] {
+                        xsize = x;
+                    }
+                } else if hm.contains_key(YSIZE) {
+                    if let MatrixType::DOUB(x) = hm[YSIZE] {
+                        ysize = x;
+                    }
+                } else if hm.contains_key(ROTATION) {
+                    if let MatrixType::LONG(x) = hm[ROTATION] {
+                        rotation = x;
+                    }
+                } else if hm.contains_key(RASTER_TIME) {
+                    if let MatrixType::DOUB(x) = hm[RASTER_TIME] {
+                        raster_time = x;
+                    }
+                } else if hm.contains_key(XOFFSET) {
+                    if let MatrixType::DOUB(x) = hm[XOFFSET] {
+                        xoffset = x;
+                    }
+                } else if hm.contains_key(YOFFSET) {
+                    if let MatrixType::DOUB(x) = hm[YOFFSET] {
+                        yoffset = x;
+                    }
+                } else if hm.contains_key(XRETRACE) {
+                    if let MatrixType::BOOL(x) = hm[XRETRACE] {
+                        xretrace = if x == 0 { false } else { true };
+                    }
+                } else if hm.contains_key(YRETRACE) {
+                    if let MatrixType::BOOL(x) = hm[YRETRACE] {
+                        yretrace = if x == 0 { false } else { true };
+                    }
+                }
+            }
+            IdentBlock::BREF(x) => {
+                println!("f: {}", x);
+                
+                if x ==  "20201111--4_1.Z_mtrx" {
+                    break;
+                }
+            }
+            _ => continue,
+        };
+        position = cursor.position();
+    }
+
+    ParamInfo {
+        current,
+        bias,
+        xsize,
+        ysize,
+        xres,
+        yres,
+        rotation,
+        raster_time,
+        xoffset,
+        yoffset,
+        xretrace,
+        yretrace,
+    }
+}
+
+// returns a Vec of all IdentBlock in the paramfile
+pub fn read_omicron_matrix_paramfile_full(filename: &str) -> Vec<IdentBlock> {
+    let bytes = read(filename).unwrap();
+    let mut cursor = Cursor::new(&bytes);
+    let magic_header = read_magic_header(&mut cursor);
+    assert_eq!(magic_header, "ONTMATRX0101");
+
+    let file_length = bytes.len();
+    let mut position = 0;
+    let mut v = Vec::new();
+    while position < file_length as u64 {
+        v.push(read_ident_block(&mut cursor));
+        position = cursor.position();
+    }
+    // println!("v: {:#?}", v);
+    assert_eq!(cursor.position(), file_length as u64);
+    v
 }
 
 fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
@@ -74,6 +238,7 @@ fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         "EXPD" => read_expd(cursor),
         "FSEQ" => read_fseq(cursor),
         "EXPS" => read_exps(cursor),
+        "GENL" => read_genl(cursor),
         "EEPA" => read_eepa(cursor),
         "INCI" => read_inci(cursor),
         "MARK" => read_mark(cursor),
@@ -99,22 +264,18 @@ fn read_meta(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
 
-    let program_name = read_matrix_string(cursor);
-    let version = read_matrix_string(cursor);
+    let mut hm: HashMap<String, String> = HashMap::new();
+    hm.insert("program_name".to_string(), read_matrix_string(cursor));
+    hm.insert("version".to_string(), read_matrix_string(cursor));
 
-    let _ = read_u32_le(cursor);
-    let profile = read_matrix_string(cursor);
-    let user = read_matrix_string(cursor);
+    skip(cursor, 4);
 
-    let _ = read_u32_le(cursor);
+    hm.insert("profile".to_string(), read_matrix_string(cursor));
+    hm.insert("user".to_string(), read_matrix_string(cursor));
 
-    let meta = META {
-        program_name,
-        version,
-        profile,
-        user,
-    };
-    IdentBlock::META(meta)
+    skip(cursor, 4);
+
+    IdentBlock::META(hm)
 }
 
 //EXPD
@@ -149,20 +310,24 @@ fn read_exps(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
-    skip(cursor, 8);
+    skip(cursor, 4);
 
-    // not sure what this is good for
-    let _a = read_u32_le(cursor);
-    // println!("a: {}", a);
+    IdentBlock::EXPS("".to_string())
+}
+
+// GENL
+// this block is nested first in EXPS
+fn read_genl(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+    let _len = read_u32_le(cursor);
+
+    let a = read_matrix_string(cursor);
     let b = read_matrix_string(cursor);
     let c = read_matrix_string(cursor);
-    let d = read_matrix_string(cursor);
-
-    IdentBlock::EXPS(format!("{}; {}; {}", b, c, d))
+    IdentBlock::GENL(format!("{}; {}; {}", a, b, c))
 }
 
 // INST
-// this block is contained in EXPS
+// this block is nested second in EXPS
 fn read_inst(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let len = read_u32_le(cursor);
 
@@ -187,7 +352,7 @@ fn read_inst(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 // CNXS
-// this block is contained in EXPS
+// this block is nested third in EXPS
 fn read_cnxs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let len = read_u32_le(cursor);
 
@@ -319,7 +484,7 @@ fn read_pmod(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // CCSY
 // has nested blocks DICT, CHCS, SCAN, XFER
 fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
-    let len = read_u32_le(cursor);
+    let _len = read_u32_le(cursor);
     // println!("CCSY len: {}", len);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -466,6 +631,7 @@ fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         }
         position = cursor.position();
     }
+    println!("XFER hm: {:#?}", hm);
     IdentBlock::XFER(hm)
 }
 
@@ -486,7 +652,7 @@ fn read_eoed(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unbytes = read_u32_le(cursor);
-    println!("End of file");
+    println!("END OF FILE");
 
     IdentBlock::EOED(true)
 }

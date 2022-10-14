@@ -94,13 +94,13 @@ fn read_data(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     // println!("DATA len: {}", len);
     let vec_len = len / size_of::<u32>() as u32;
 
-    let mut v = Vec::with_capacity(vec_len as usize);
+    let mut img_data = Vec::with_capacity(vec_len as usize);
     // TODO: this is the data for all channels
     // DESC shows 4 image channels but the data points here are 2 x 160_000 (2 400x400 pixel images)
     for _ in 0..vec_len {
-        v.push(read_u32_le(cursor));
+        img_data.push(read_u32_le(cursor));
     }
 
     // return all data here, then with info from paramfile split it for use in seperate images
-    IdentBlock::DATA(v)
+    IdentBlock::DATA(img_data)
 }
