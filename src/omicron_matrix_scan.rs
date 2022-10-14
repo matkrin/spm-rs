@@ -11,6 +11,13 @@ use crate::utils::{
     read_magic_header, read_matrix_string, read_matrix_type, read_u32_le, read_u64_le, skip,
 };
 
+#[derive(Debug)]
+enum IdentBlock {
+    BKLT(DateTime<Utc>),
+    DESC(HashMap<String, u32>),
+    DATA(Vec<u32>),
+}
+
 pub fn read_omicron_matrix_scanfile(filename: &str) {
     let bytes = read(filename).unwrap();
     let mut cursor = Cursor::new(&bytes);
@@ -28,12 +35,6 @@ pub fn read_omicron_matrix_scanfile(filename: &str) {
     assert_eq!(cursor.position(), file_length as u64);
 }
 
-#[derive(Debug)]
-enum IdentBlock {
-    BKLT(DateTime<Utc>),
-    DESC(HashMap<String, u32>),
-    DATA(Vec<u32>),
-}
 
 fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let ident: String = read_matrix_type(cursor);
