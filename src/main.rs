@@ -9,7 +9,8 @@ fn main() {
     // }
 
     let filename = "20201111--4_1.Z_mtrx";
-    let param = get_param_info("20201111_0001.mtrx");
+
+    let param = get_param_info(filename);
     // let param_full = read_omicron_matrix_paramfile_full("20201111_0001.mtrx");
     // let s = read_omicron_matrix_scanfile(filename);
     // println!("full: {:#?}", param_full);

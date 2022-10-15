@@ -36,7 +36,8 @@ static XRETRACE: &'static str = "XYScanner.X_Retrace [--]";
 static YRETRACE: &'static str = "XYScanner.Y_Retrace [--]";
 
 pub fn get_param_info(filename: &str) -> ParamInfo {
-    let bytes = read(filename).unwrap();
+    let paramfile = format!("{}_0001.mtrx", filename.split_once("--").unwrap().0);
+    let bytes = read(paramfile).unwrap();
     let mut cursor = Cursor::new(&bytes);
     let magic_header = read_magic_header(&mut cursor);
     assert_eq!(magic_header, "ONTMATRX0101");
@@ -150,7 +151,7 @@ pub fn get_param_info(filename: &str) -> ParamInfo {
             IdentBlock::BREF(x) => {
                 println!("f: {}", x);
                 
-                if x ==  "20201111--4_1.Z_mtrx" {
+                if x == filename {
                     break;
                 }
             }
