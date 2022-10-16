@@ -1,24 +1,25 @@
+use std::collections::HashMap;
 use std::fs::read;
 use std::io::Cursor;
 
-use crate::MatrixType;
+use crate::omicron_matrix_param::{read_ident_block, IdentBlock, MatrixType};
 use crate::utils::read_magic_header;
-use crate::omicron_matrix_param::{read_ident_block, IdentBlock};
 
 #[derive(Debug)]
-pub struct ParamInfo {
-    current: f64,
-    bias: f64,
-    xsize: f64,
-    ysize: f64,
-    xres: u32,
-    yres: u32,
-    rotation: u32,
-    raster_time: f64,
-    xoffset: f64,
-    yoffset: f64,
-    xretrace: bool,
-    yretrace: bool,
+pub struct ParamData {
+    pub current: f64,
+    pub bias: f64,
+    pub xsize: f64,
+    pub ysize: f64,
+    pub xres: u32,
+    pub yres: u32,
+    pub rotation: u32,
+    pub raster_time: f64,
+    pub xoffset: f64,
+    pub yoffset: f64,
+    pub xretrace: bool,
+    pub yretrace: bool,
+    pub tffs: HashMap<String, f64>
 }
 
 static CURRENT: &'static str = "Regulator.Setpoint_1 [Ampere]";
@@ -35,7 +36,7 @@ static YOFFSET: &'static str = "XYScanner.Y_Offset [Meter]";
 static XRETRACE: &'static str = "XYScanner.X_Retrace [--]";
 static YRETRACE: &'static str = "XYScanner.Y_Retrace [--]";
 
-pub fn get_param_info(filename: &str) -> ParamInfo {
+pub fn get_param_info(filename: &str) -> ParamData {
     let paramfile = format!("{}_0001.mtrx", filename.split_once("--").unwrap().0);
     let bytes = read(paramfile).unwrap();
     let mut cursor = Cursor::new(&bytes);
@@ -56,10 +57,10 @@ pub fn get_param_info(filename: &str) -> ParamInfo {
     let mut yoffset = 0.0;
     let mut xretrace = false;
     let mut yretrace = false;
+    let mut tffs: HashMap<String, f64> = HashMap::new();
 
     let mut position = 0;
     while position < file_length as u64 {
-
         // 1. read EEPA which gives initial values, in EEPA all keys should be in one Hashmap
         // 2. change initial values if the PMOD with the key for this value appears
         // 3. break if BREF with filename to look appears
@@ -148,9 +149,16 @@ pub fn get_param_info(filename: &str) -> ParamInfo {
                     }
                 }
             }
+            IdentBlock::XFER(hm) => {
+                for (key, value) in hm.iter() {
+                    if let MatrixType::DOUB(x) = value {
+                        tffs.insert(key.to_owned(), *x);
+                    }
+                }
+            },
             IdentBlock::BREF(x) => {
                 println!("f: {}", x);
-                
+
                 if x == filename {
                     break;
                 }
@@ -160,7 +168,7 @@ pub fn get_param_info(filename: &str) -> ParamInfo {
         position = cursor.position();
     }
 
-    ParamInfo {
+    ParamData {
         current,
         bias,
         xsize,
@@ -173,5 +181,6 @@ pub fn get_param_info(filename: &str) -> ParamInfo {
         yoffset,
         xretrace,
         yretrace,
+        tffs,
     }
 }
