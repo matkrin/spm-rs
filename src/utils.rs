@@ -46,6 +46,28 @@ pub fn read_magic_header(cursor: &mut Cursor<&Vec<u8>>) -> String {
     read_str(&buffer).to_owned()
 }
 
+// i16
+pub fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
+    i16::from_le_bytes(buffer[..2].try_into().unwrap())
+}
+
+pub fn read_i16_le(cursor: &mut Cursor<&Vec<u8>>) -> i16 {
+    let mut buffer = [0; 2];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_i16_le_bytes(&buffer)
+}
+
+// i32
+pub fn read_i32_le_bytes(buffer: &[u8]) -> i32 {
+    i32::from_le_bytes(buffer[..4].try_into().unwrap())
+}
+
+pub fn read_i32_le(cursor: &mut Cursor<&Vec<u8>>) -> i32 {
+    let mut buffer = [0; 4];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_i32_le_bytes(&buffer)
+}
+
 pub fn read_u32_le_bytes(buffer: &[u8]) -> u32 {
     u32::from_le_bytes(buffer[..4].try_into().unwrap())
 }
@@ -74,4 +96,49 @@ pub fn read_f64_le(cursor: &mut Cursor<&Vec<u8>>) -> f64 {
     let mut buffer = [0; 8];
     cursor.read_exact(&mut buffer).unwrap();
     read_f64_le_bytes(&buffer)
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_read_i16_le_bytes() {
+        let n: i16 = 10;
+        let bytes = n.to_le_bytes();
+        assert_eq!(read_i16_le_bytes(&bytes), n);
+    }
+
+    #[test]
+    fn test_read_i16_le() {
+        let (a, b, c): (i16, i16, i16) = (10, 20, 30);
+        let mut buffer = a.to_le_bytes().to_vec();
+        buffer.append(&mut b.to_le_bytes().to_vec());
+        buffer.append(&mut c.to_le_bytes().to_vec());
+        let mut cursor = Cursor::new(&buffer);
+        assert_eq!(read_i16_le(&mut cursor), a);
+        assert_eq!(read_i16_le(&mut cursor), b);
+        assert_eq!(read_i16_le(&mut cursor), c);
+    }
+
+    #[test]
+    fn test_read_i32_le_bytes() {
+        let n: i32 = 10;
+        let bytes = n.to_le_bytes();
+        assert_eq!(read_i32_le_bytes(&bytes), n);
+    }
+
+    #[test]
+    fn test_read_i32_le() {
+        let (a, b, c): (i32, i32, i32) = (10, 20, 30);
+        let mut buffer = a.to_le_bytes().to_vec();
+        buffer.append(&mut b.to_le_bytes().to_vec());
+        buffer.append(&mut c.to_le_bytes().to_vec());
+        let mut cursor = Cursor::new(&buffer);
+        assert_eq!(read_i32_le(&mut cursor), a);
+        assert_eq!(read_i32_le(&mut cursor), b);
+        assert_eq!(read_i32_le(&mut cursor), c);
+    }
 }

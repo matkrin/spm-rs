@@ -49,7 +49,7 @@ impl SpmImage {
         .unwrap();
     }
 
-    pub fn correct_plane(mut self) -> Self {
+    pub fn correct_plane(&mut self) -> &Self {
         let xres = self.xres as usize;
         let yres = self.yres as usize;
 
@@ -73,7 +73,7 @@ impl SpmImage {
         self
     }
 
-    pub fn correct_lines(mut self) -> Self {
+    pub fn correct_lines(&mut self) -> &Self {
         let xres = self.xres as usize;
         let yres = self.yres as usize;
 

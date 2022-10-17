@@ -110,7 +110,6 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
 
     while block_counter * MUL_BLOCK < file_len as i32 {
         let img_num = read_i16_le(&mut cursor);
-        println!("img num: {}", img_num);
         let size = read_i16_le(&mut cursor);
 
         let xres = read_i16_le(&mut cursor);

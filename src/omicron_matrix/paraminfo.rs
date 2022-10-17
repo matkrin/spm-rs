@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::fs::read;
 use std::io::Cursor;
+use std::path::Path;
 
-use crate::omicron_matrix_param::{read_ident_block, IdentBlock, MatrixType};
+use crate::omicron_matrix::paramfile::{read_ident_block, IdentBlock, MatrixType};
 use crate::utils::read_magic_header;
 
 #[derive(Debug)]
@@ -37,6 +38,7 @@ static XRETRACE: &'static str = "XYScanner.X_Retrace [--]";
 static YRETRACE: &'static str = "XYScanner.Y_Retrace [--]";
 
 pub fn get_param_info(filename: &str) -> ParamData {
+    let basename = Path::new(filename).file_name().unwrap().to_str().unwrap();
     let paramfile = format!("{}_0001.mtrx", filename.split_once("--").unwrap().0);
     let bytes = read(paramfile).unwrap();
     let mut cursor = Cursor::new(&bytes);
@@ -159,7 +161,7 @@ pub fn get_param_info(filename: &str) -> ParamData {
             IdentBlock::BREF(x) => {
                 println!("f: {}", x);
 
-                if x == filename {
+                if x == basename {
                     break;
                 }
             }

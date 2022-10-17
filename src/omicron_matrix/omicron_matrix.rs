@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::spm_image::SpmImage;
-use crate::{omicron_matrix_scan::read_omicron_matrix_scanfile, paraminfo::get_param_info};
+use crate::omicron_matrix::scanfile::read_omicron_matrix_scanfile; 
+use crate::omicron_matrix::paraminfo::get_param_info;
 
 pub fn read_omicron_matrix(filename: &str) -> SpmImage {
     let paraminfo = get_param_info(filename);

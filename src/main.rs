@@ -1,23 +1,18 @@
-// use mulfile_rs::read_mul;
-use mulfile_rs::read_omicron_matrix;
+use mulfile_rs::mulfile::read_mul;
+use mulfile_rs::omicron_matrix::read_omicron_matrix;
 
 fn main() {
-    // let mulfile = read_mul("tests/stm-aarhus-mul-a.mul");
+    // let mulfile = read_mul("tests/test_files/stm-aarhus-flm.flm");
     //
-    // for i in mulfile {
-    //     i.correct_plane().correct_lines().save_png();
+    // for mut i in mulfile {
+    //     i.img_data.flip_img_data();
+    //     i.img_data.correct_plane();
+    //     i.img_data.correct_lines();
+    //     i.img_data.save_png();
     // }
 
-    let filename = "20201111--4_1.Z_mtrx";
-
-    // let param = get_param_info(filename);
-    // let param_full = read_omicron_matrix_paramfile_full("20201111_0001.mtrx");
-    let mut s = read_omicron_matrix(filename);
-    println!("{:?}", s.img_data);
-    s.save_png();
-    // s.flip_img_data();
-    // s.save_png();
-    // s.iter().for_each(|x| x.save_png())
-    // println!("full: {:#?}", param_full);
-    // println!("parwm: {:#?}", param);
+    // let mut omicron_matrix = read_omicron_matrix("tests/test_files/20201111--4_1.Z_mtrx");
+    // omicron_matrix.correct_plane();
+    // omicron_matrix.correct_lines();
+    // omicron_matrix.save_png();
 }
