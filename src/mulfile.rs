@@ -1,4 +1,3 @@
-
 use std::fs::read;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -6,8 +5,9 @@ use std::str;
 
 use chrono::prelude::*;
 use chrono::{DateTime, Utc};
-use image;
-use nalgebra::{DMatrix, DVector};
+
+use crate::spm_image::SpmImage;
+use crate::utils::{read_i16_le, read_i16_le_bytes, read_i32_le, read_string};
 
 #[derive(Debug)]
 pub struct MulImage {
@@ -39,115 +39,12 @@ pub struct MulImage {
     pub unitnr: i32,
     pub version: i32,
     pub gain: i32,
-    pub img_data: Vec<f64>,
+    pub img_data: SpmImage,
 }
 
-impl MulImage {
-    fn flip_img_data(&self) -> Vec<f64> {
-        let mut new: Vec<f64> = Vec::with_capacity((self.xres * self.yres) as usize);
-        for i in (0..self.yres).rev() {
-            let mut line = self.img_data[(i * 512) as usize..((i + 1) * 512) as usize].to_owned();
-            new.append(&mut line);
-        }
-        new
-    }
-
-    pub fn save_png(&self) {
-        let min = self
-            .img_data
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-        let max = self
-            .img_data
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-        let diff = max - min;
-        let pixels: Vec<u8> = self
-            .flip_img_data()
-            .iter()
-            .map(|x| ((x - min) / diff * 255.0) as u8)
-            .collect();
-        let out_name = format!("{}.png", self.img_id);
-        image::save_buffer(
-            out_name,
-            &pixels,
-            self.xres as u32,
-            self.yres as u32,
-            image::ColorType::L8,
-        )
-        .unwrap();
-    }
-
-    pub fn correct_plane(mut self) -> Self {
-        let xres = self.xres as usize;
-        let yres = self.yres as usize;
-
-        let img_data_vec = DVector::from_vec(self.img_data.clone());
-
-        let mut coeffs = DMatrix::from_element(xres * yres, 3, 1.0);
-        let x_coords = DMatrix::from_fn(yres, xres, |_, j| j as f64);
-        let y_coords = DMatrix::from_fn(yres, xres, |i, _| i as f64);
-
-        coeffs.set_column(1, &DVector::from_column_slice(x_coords.as_slice()));
-        coeffs.set_column(2, &DVector::from_column_slice(y_coords.as_slice()));
-
-        let lstsq = coeffs.svd(true, true).solve(&img_data_vec, 1e-14).unwrap();
-
-        let ones = DMatrix::from_element(yres, xres, 1.0);
-
-        let correction = ones * lstsq[0] + x_coords * lstsq[1] + y_coords * lstsq[2];
-
-        let corrected = DMatrix::from_vec(yres, xres, self.img_data.clone()) - correction;
-        self.img_data = corrected.as_slice().try_into().unwrap();
-        self
-    }
-
-    pub fn correct_lines(mut self) -> Self {
-        let xres = self.xres as usize;
-        let yres = self.yres as usize;
-
-        let img_data_matrix = DMatrix::from_vec(yres, xres, self.img_data.clone());
-        let means = img_data_matrix.row_mean();
-        let correction = DMatrix::from_fn(yres, xres, |_, j| means[j]);
-        let corrected = img_data_matrix - correction;
-        self.img_data = corrected.as_slice().try_into().unwrap();
-        self
-    }
-}
-
-// i16
-fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
-    i16::from_le_bytes(buffer[..2].try_into().unwrap())
-}
-
-fn read_i16_le(cursor: &mut Cursor<&Vec<u8>>) -> i16 {
-    let mut buffer = [0; 2];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_i16_le_bytes(&buffer)
-}
-
-// i32
-fn read_i32_le_bytes(buffer: &[u8]) -> i32 {
-    i32::from_le_bytes(buffer[..4].try_into().unwrap())
-}
-
-fn read_i32_le(cursor: &mut Cursor<&Vec<u8>>) -> i32 {
-    let mut buffer = [0; 4];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_i32_le_bytes(&buffer)
-}
-
-// string
-fn read_mul_str(buffer: &[u8]) -> &str {
-    str::from_utf8(&buffer[..21]).unwrap()
-}
-
-fn read_string(cursor: &mut Cursor<&Vec<u8>>) -> String {
-    let mut buffer = [0; 21];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_mul_str(&buffer).to_owned()
+// Always length 21
+fn read_mul_string(cursor: &mut Cursor<&Vec<u8>>) -> String {
+    read_string(cursor, 21)
 }
 
 // Image Data
@@ -194,6 +91,7 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
     let mut mul: Vec<MulImage> = Vec::new();
 
     let bytes = read(filename).unwrap();
+    let file_len = bytes.len();
     let mut cursor = Cursor::new(&bytes);
 
     let _nr = read_i16_le(&mut cursor);
@@ -202,12 +100,17 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
     if adr == 3 {
         cursor
             .seek(SeekFrom::Start((adr * MUL_BLOCK) as u64))
-            .expect("seeking failed");
+            .expect("seeking to first block failed");
         block_counter += adr;
+    } else {
+        cursor
+            .seek(SeekFrom::Start(0))
+            .expect("seeking to start failed");
     }
 
-    while block_counter * MUL_BLOCK < bytes.len().try_into().unwrap() {
+    while block_counter * MUL_BLOCK < file_len as i32 {
         let img_num = read_i16_le(&mut cursor);
+        println!("img num: {}", img_num);
         let size = read_i16_le(&mut cursor);
 
         let xres = read_i16_le(&mut cursor);
@@ -234,8 +137,8 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
         let bias = read_i16_le(&mut cursor);
         let current = read_i16_le(&mut cursor);
 
-        let sample = read_string(&mut cursor);
-        let title = read_string(&mut cursor);
+        let sample = read_mul_string(&mut cursor);
+        let title = read_mul_string(&mut cursor);
 
         let postpr = read_i16_le(&mut cursor);
         let postd1 = read_i16_le(&mut cursor);
@@ -322,7 +225,7 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
         mul.push(MulImage {
             filepath,
             img_num: img_num.into(),
-            img_id: img_id.into(),
+            img_id: img_id.clone(),
             size: size.into(),
             xres: xres.into(),
             yres: yres.into(),
@@ -348,7 +251,14 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
             unitnr: unitnr.into(),
             version: version.into(),
             gain: gain.into(),
-            img_data,
+            img_data: SpmImage {
+                img_id,
+                xres: xres as u32,
+                yres: yres as u32,
+                xsize: xsize as f64,
+                ysize: ysize as f64,
+                img_data,
+            },
         })
     }
     assert_eq! {block_counter * MUL_BLOCK, bytes.len() as i32};
@@ -361,54 +271,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read_i16_le_bytes() {
-        let n: i16 = 10;
-        let bytes = n.to_le_bytes();
-        assert_eq!(read_i16_le_bytes(&bytes), n);
-    }
-
-    #[test]
-    fn test_read_i16_le() {
-        let (a, b, c): (i16, i16, i16) = (10, 20, 30);
-        let mut buffer = a.to_le_bytes().to_vec();
-        buffer.append(&mut b.to_le_bytes().to_vec());
-        buffer.append(&mut c.to_le_bytes().to_vec());
-        let mut cursor = Cursor::new(&buffer);
-        assert_eq!(read_i16_le(&mut cursor), a);
-        assert_eq!(read_i16_le(&mut cursor), b);
-        assert_eq!(read_i16_le(&mut cursor), c);
-    }
-
-    #[test]
-    fn test_read_i32_le_bytes() {
-        let n: i32 = 10;
-        let bytes = n.to_le_bytes();
-        assert_eq!(read_i32_le_bytes(&bytes), n);
-    }
-
-    #[test]
-    fn test_read_i32_le() {
-        let (a, b, c): (i32, i32, i32) = (10, 20, 30);
-        let mut buffer = a.to_le_bytes().to_vec();
-        buffer.append(&mut b.to_le_bytes().to_vec());
-        buffer.append(&mut c.to_le_bytes().to_vec());
-        let mut cursor = Cursor::new(&buffer);
-        assert_eq!(read_i32_le(&mut cursor), a);
-        assert_eq!(read_i32_le(&mut cursor), b);
-        assert_eq!(read_i32_le(&mut cursor), c);
-    }
-
-    #[test]
-    fn test_read_mul_str() {
+    fn test_read_mul_string() {
         let s = "Hello this is a test!";
-        assert_eq!(read_mul_str(s.as_bytes()), s);
-    }
-
-    #[test]
-    fn test_read_string() {
-        let s = "Hello this is a test!";
+        assert_eq!(21, s.len());
         let buffer = s.as_bytes().to_vec();
         let mut cursor = Cursor::new(&buffer);
-        assert_eq!(read_string(&mut cursor), s);
+        assert_eq!(read_mul_string(&mut cursor), s);
     }
 }
