@@ -1,4 +1,4 @@
-use mulfile_rs::mulfile::read_mul;
+use spm_rs::mulfile::read_mul;
 
 const MULFILE: &str = "tests/test_files/stm-aarhus-mul-a.mul";
 
