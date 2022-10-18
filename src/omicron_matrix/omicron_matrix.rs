@@ -3,8 +3,25 @@ use std::collections::HashMap;
 use crate::spm_image::SpmImage;
 use crate::omicron_matrix::scanfile::read_omicron_matrix_scanfile; 
 use crate::omicron_matrix::paraminfo::get_param_info;
+use crate::utils::flip_img_data;
 
-pub fn read_omicron_matrix(filename: &str) -> SpmImage {
+#[derive(Debug)]
+pub struct OmicronMatrix {
+    pub current: f64,
+    pub bias: f64,
+    pub xsize: f64,
+    pub ysize: f64,
+    pub xres: u32,
+    pub yres: u32,
+    pub rotation: u32,
+    pub raster_time: f64,
+    pub xoffset: f64,
+    pub yoffset: f64,
+    pub img_data_fw: SpmImage,
+    pub img_data_bw: SpmImage,
+}
+
+pub fn read_omicron_matrix(filename: &str) -> OmicronMatrix {
     let paraminfo = get_param_info(filename);
     let scandata = read_omicron_matrix_scanfile(filename);
     // println!("{:#?}", paraminfo);
@@ -26,19 +43,38 @@ pub fn read_omicron_matrix(filename: &str) -> SpmImage {
         lines.next().unwrap().iter().for_each(|x| {
             v_bw.push(f64::from(*x))
         });
-
-        // v_fw.push(line_fw);
-        // v_bw.push(line_bw);
     }
 
-    // v_bw.reverse();
-    SpmImage{
-        img_id: "forward".to_string(),
-        xres: paraminfo.xres,
-        yres: paraminfo.yres,
+    let v_fw = flip_img_data(v_fw, paraminfo.xres, paraminfo.yres);
+    v_bw.reverse();
+
+    OmicronMatrix{
+        current: paraminfo.current,
+        bias: paraminfo.bias,
         xsize: paraminfo.xsize,
         ysize: paraminfo.ysize,
-        img_data: v_fw,
+        xres: paraminfo.xres,
+        yres: paraminfo.yres,
+        rotation: paraminfo.rotation,
+        raster_time: paraminfo.raster_time,
+        xoffset: paraminfo.xoffset,
+        yoffset: paraminfo.yoffset,
+        img_data_fw: SpmImage{
+            img_id: "forward".to_string(),
+            xres: paraminfo.xres,
+            yres: paraminfo.yres,
+            xsize: paraminfo.xsize,
+            ysize: paraminfo.ysize,
+            img_data: v_fw,
+        },
+        img_data_bw: SpmImage{
+            img_id: "backward".to_string(),
+            xres: paraminfo.xres,
+            yres: paraminfo.yres,
+            xsize: paraminfo.xsize,
+            ysize: paraminfo.ysize,
+            img_data: v_bw,
+        },
     }
 }
 
