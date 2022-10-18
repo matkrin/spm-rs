@@ -7,7 +7,7 @@ use chrono::prelude::*;
 use chrono::{DateTime, Utc};
 
 use crate::spm_image::SpmImage;
-use crate::utils::{read_i16_le, read_i16_le_bytes, read_i32_le, read_string};
+use crate::utils::{read_i16_le, read_i16_le_bytes, read_i32_le, read_string, flip_img_data};
 
 #[derive(Debug)]
 pub struct MulImage {
@@ -218,6 +218,7 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
         let filepath = PathBuf::from(&filename);
         let basename = filepath.file_stem().unwrap().to_str().unwrap();
         let img_id = format!("{}_{}", basename, img_num);
+        let img_data = flip_img_data(img_data, xres as u32, yres as u32);
 
         block_counter += size as i32;
 

@@ -12,15 +12,6 @@ pub struct SpmImage {
 }
 
 impl SpmImage {
-    pub fn flip_img_data(&mut self) {
-        let mut new: Vec<f64> = Vec::with_capacity((self.xres * self.yres) as usize);
-        for i in (0..self.yres).rev() {
-            let mut line = self.img_data[(i * self.xres) as usize..((i + 1) * self.xres) as usize].to_owned();
-            new.append(&mut line);
-        }
-        self.img_data = new;
-    }
-
     pub fn save_png(&self) {
         let min = self
             .img_data
@@ -34,7 +25,6 @@ impl SpmImage {
             .unwrap();
         let diff = max - min;
         let pixels: Vec<u8> = self.img_data
-            // .flip_img_data()
             .iter()
             .map(|x| ((x - min) / diff * 255.0) as u8)
             .collect();
