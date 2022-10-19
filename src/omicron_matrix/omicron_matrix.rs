@@ -49,16 +49,16 @@ pub fn read_omicron_matrix(filename: &str) -> OmicronMatrix {
     v_bw.reverse();
 
     OmicronMatrix{
-        current: paraminfo.current,
+        current: paraminfo.current * 1e9,
         bias: paraminfo.bias,
-        xsize: paraminfo.xsize,
-        ysize: paraminfo.ysize,
+        xsize: paraminfo.xsize * 1e9,
+        ysize: paraminfo.ysize * 1e9,
         xres: paraminfo.xres,
         yres: paraminfo.yres,
         rotation: paraminfo.rotation,
-        raster_time: paraminfo.raster_time,
-        xoffset: paraminfo.xoffset,
-        yoffset: paraminfo.yoffset,
+        raster_time: paraminfo.raster_time * paraminfo.xres as f64 * paraminfo.yres as f64,
+        xoffset: paraminfo.xoffset * 1e9,
+        yoffset: paraminfo.yoffset * 1e9,
         img_data_fw: SpmImage{
             img_id: "forward".to_string(),
             xres: paraminfo.xres,
