@@ -31,22 +31,21 @@ pub fn read_omicron_matrix(filename: &str) -> Result<OmicronMatrix> {
         (if paraminfo.xretrace { 2 } else { 1 }) * (if paraminfo.yretrace { 2 } else { 1 });
     let mut lines = scandata.img_data.chunks(paraminfo.xres as usize);
 
-    let mut v_fw = Vec::new();
-    let mut v_bw = Vec::new();
+    let mut forward_up = Vec::new();
+    let mut backward_up = Vec::new();
 
     for _ in 0..lines.len() / 2 {
         for x in lines.next().unwrap().iter() {
-            v_fw.push(tff_linear(f64::from(*x), &paraminfo.tffs))
+            forward_up.push(tff_linear(f64::from(*x), &paraminfo.tffs))
         }
-        lines
-            .next()
-            .unwrap()
-            .iter()
-            .for_each(|x| v_bw.push(f64::from(*x)));
+
+        for x in lines.next().unwrap().iter() {
+            backward_up.push(tff_linear(f64::from(*x), &paraminfo.tffs))
+        }
     }
 
-    let v_fw = flip_img_data(v_fw, paraminfo.xres, paraminfo.yres);
-    v_bw.reverse();
+    let v_fw = flip_img_data(forward_up, paraminfo.xres, paraminfo.yres);
+    backward_up.reverse();
 
     Ok(OmicronMatrix {
         current: paraminfo.current * 1e9,
@@ -60,7 +59,7 @@ pub fn read_omicron_matrix(filename: &str) -> Result<OmicronMatrix> {
         xoffset: paraminfo.xoffset * 1e9,
         yoffset: paraminfo.yoffset * 1e9,
         img_data_fw: SpmImage {
-            img_id: "forward".to_string(),
+            img_id: "forward_up".to_string(),
             xres: paraminfo.xres,
             yres: paraminfo.yres,
             xsize: paraminfo.xsize,
@@ -68,12 +67,12 @@ pub fn read_omicron_matrix(filename: &str) -> Result<OmicronMatrix> {
             img_data: v_fw,
         },
         img_data_bw: SpmImage {
-            img_id: "backward".to_string(),
+            img_id: "backward_up".to_string(),
             xres: paraminfo.xres,
             yres: paraminfo.yres,
             xsize: paraminfo.xsize,
             ysize: paraminfo.ysize,
-            img_data: v_bw,
+            img_data: backward_up,
         },
     })
 }
