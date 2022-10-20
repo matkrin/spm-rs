@@ -41,7 +41,7 @@ pub enum MatrixType {
 }
 
 // returns a Vec of all IdentBlock in the paramfile
-pub fn read_omicron_matrix_paramfile_full(filename: &str) -> Vec<IdentBlock> {
+pub fn _read_omicron_matrix_paramfile_full(filename: &str) -> Vec<IdentBlock> {
     let bytes = read(filename).unwrap();
     let mut cursor = Cursor::new(&bytes);
     let magic_header = read_magic_header(&mut cursor);
@@ -54,7 +54,6 @@ pub fn read_omicron_matrix_paramfile_full(filename: &str) -> Vec<IdentBlock> {
         v.push(read_ident_block(&mut cursor));
         position = cursor.position();
     }
-    // println!("v: {:#?}", v);
     assert_eq!(cursor.position(), file_length as u64);
     v
 }
@@ -120,7 +119,6 @@ fn read_expd(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         let s = read_matrix_string(cursor);
         content += &format!("\n{}", s);
     }
-    // println!("EXPD: {}", content.trim());
     IdentBlock::EXPD(content.trim().to_owned())
 }
 
@@ -314,16 +312,10 @@ fn read_pmod(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // has nested blocks DICT, CHCS, SCAN, XFER
 fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
-    // println!("CCSY len: {}", len);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
 
     skip(cursor, 4);
-
-    // let inner_block = read_matrix_type(cursor);
-    // println!("inner: {}", inner_block);
-    // skip(cursor, len as u64);
-
     IdentBlock::CCSY("".to_string())
 }
 
@@ -331,8 +323,6 @@ fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // nested in CCSY
 fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
-    // println!("DICT len: {}", _len);
-
     let _ = read_u32_le(cursor); // no time in here
     let _unused = read_u32_le(cursor);
 
@@ -432,7 +422,6 @@ fn read_scan(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // netsted in CCSY
 fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
-    // println!("XFER len: {}", _len);
 
     let mut position = cursor.position();
     let end = position + _len as u64;
@@ -441,7 +430,6 @@ fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     while position < end {
         skip(cursor, 4);
         let _n = read_u32_le(cursor);
-        // println!("n: {}", _n);
         let name = read_matrix_string(cursor);
         let unit = read_matrix_string(cursor);
 
@@ -460,7 +448,6 @@ fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
         }
         position = cursor.position();
     }
-    println!("XFER hm: {:#?}", hm);
     IdentBlock::XFER(hm)
 }
 
@@ -481,7 +468,5 @@ fn read_eoed(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unbytes = read_u32_le(cursor);
-    println!("END OF FILE");
-
     IdentBlock::EOED(true)
 }

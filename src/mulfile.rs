@@ -3,11 +3,12 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::str;
 
+use anyhow::Result;
 use chrono::prelude::*;
 use chrono::{DateTime, Utc};
 
 use crate::spm_image::SpmImage;
-use crate::utils::{read_i16_le, read_i16_le_bytes, read_i32_le, read_string, flip_img_data};
+use crate::utils::{flip_img_data, read_i16_le, read_i16_le_bytes, read_i32_le, read_string};
 
 #[derive(Debug)]
 pub struct MulImage {
@@ -85,12 +86,12 @@ fn read_point_scan(cursor: &mut Cursor<&Vec<u8>>, num_data_points: i32) -> Vec<f
     read_data_points(&buffer)
 }
 
-pub fn read_mul(filename: &str) -> Vec<MulImage> {
+pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
     const MUL_BLOCK: i32 = 128;
     let mut block_counter = 0;
     let mut mul: Vec<MulImage> = Vec::new();
 
-    let bytes = read(filename).unwrap();
+    let bytes = read(filename)?;
     let file_len = bytes.len();
     let mut cursor = Cursor::new(&bytes);
 
@@ -204,16 +205,8 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
         let current = f64::from(current) * f64::from(currfac) * 0.01; // in nA
 
         let datetime = Utc
-            .ymd(
-                year.try_into().unwrap(),
-                month.try_into().unwrap(),
-                day.try_into().unwrap(),
-            )
-            .and_hms(
-                hour.try_into().unwrap(),
-                minute.try_into().unwrap(),
-                second.try_into().unwrap(),
-            );
+            .ymd(year.try_into()?, month.try_into()?, day.try_into()?)
+            .and_hms(hour.try_into()?, minute.try_into()?, second.try_into()?);
 
         let filepath = PathBuf::from(&filename);
         let basename = filepath.file_stem().unwrap().to_str().unwrap();
@@ -262,7 +255,7 @@ pub fn read_mul(filename: &str) -> Vec<MulImage> {
         })
     }
     assert_eq! {block_counter * MUL_BLOCK, bytes.len() as i32};
-    mul
+    Ok(mul)
 }
 
 #[cfg(test)]

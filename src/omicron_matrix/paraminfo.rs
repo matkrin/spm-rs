@@ -3,6 +3,8 @@ use std::fs::read;
 use std::io::Cursor;
 use std::path::Path;
 
+use anyhow::Result;
+
 use crate::omicron_matrix::paramfile::{read_ident_block, IdentBlock, MatrixType};
 use crate::utils::read_magic_header;
 
@@ -20,7 +22,7 @@ pub struct ParamData {
     pub yoffset: f64,
     pub xretrace: bool,
     pub yretrace: bool,
-    pub tffs: HashMap<String, f64>
+    pub tffs: HashMap<String, f64>,
 }
 
 static CURRENT: &'static str = "Regulator.Setpoint_1 [Ampere]";
@@ -37,7 +39,7 @@ static YOFFSET: &'static str = "XYScanner.Y_Offset [Meter]";
 static XRETRACE: &'static str = "XYScanner.X_Retrace [--]";
 static YRETRACE: &'static str = "XYScanner.Y_Retrace [--]";
 
-pub fn get_param_info(filename: &str) -> ParamData {
+pub fn get_param_info(filename: &str) -> Result<ParamData> {
     let basename = Path::new(filename).file_name().unwrap().to_str().unwrap();
     let paramfile = format!("{}_0001.mtrx", filename.split_once("--").unwrap().0);
     let bytes = read(paramfile).unwrap();
@@ -157,10 +159,8 @@ pub fn get_param_info(filename: &str) -> ParamData {
                         tffs.insert(key.to_owned(), *x);
                     }
                 }
-            },
+            }
             IdentBlock::BREF(x) => {
-                println!("f: {}", x);
-
                 if x == basename {
                     break;
                 }
@@ -170,7 +170,7 @@ pub fn get_param_info(filename: &str) -> ParamData {
         position = cursor.position();
     }
 
-    ParamData {
+    Ok(ParamData {
         current,
         bias,
         xsize,
@@ -184,5 +184,5 @@ pub fn get_param_info(filename: &str) -> ParamData {
         xretrace,
         yretrace,
         tffs,
-    }
+    })
 }
