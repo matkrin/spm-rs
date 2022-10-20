@@ -7,6 +7,7 @@ use std::str;
 use chrono::prelude::*;
 use chrono::Utc;
 
+use crate::utils::read_i32_le;
 use crate::utils::{
     read_magic_header, read_matrix_string, read_matrix_type, read_u32_le, read_u64_le, skip,
 };
@@ -15,7 +16,7 @@ use crate::utils::{
 pub struct ScanData {
     pub datetime: DateTime<Utc>,
     pub desc: HashMap<String, u32>,
-    pub img_data: Vec<u32>,
+    pub img_data: Vec<i32>,
 }
 
 
@@ -102,7 +103,7 @@ fn read_desc(cursor: &mut Cursor<&Vec<u8>>) -> HashMap<String, u32> {
 }
 
 // TODO: num images
-fn read_data(cursor: &mut Cursor<&Vec<u8>>) -> Vec<u32> {
+fn read_data(cursor: &mut Cursor<&Vec<u8>>) -> Vec<i32> {
 
     let ident: String = read_matrix_type(cursor);
     assert_eq!(ident, "DATA");
@@ -115,9 +116,8 @@ fn read_data(cursor: &mut Cursor<&Vec<u8>>) -> Vec<u32> {
     // TODO: this is the data for all channels
     // DESC shows 4 image channels but the data points here are 2 x 160_000 (2 400x400 pixel images)
     for _ in 0..img_data_len {
-        img_data.push(read_u32_le(cursor));
+        img_data.push(read_i32_le(cursor));
     }
-
     img_data
     // return all data here, then with info from paramfile split it for use in seperate images
     // IdentBlock::DATA(img_data)
