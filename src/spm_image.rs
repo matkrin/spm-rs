@@ -1,5 +1,7 @@
-use nalgebra::{DMatrix, DVector};
+use std::io::Cursor;
 
+use image::{ImageBuffer, Luma};
+use nalgebra::{DMatrix, DVector};
 
 #[derive(Debug)]
 pub struct SpmImage {
@@ -12,7 +14,7 @@ pub struct SpmImage {
 }
 
 impl SpmImage {
-    pub fn save_png(&self) {
+    pub fn norm(&self) -> Vec<u8> {
         let min = self
             .img_data
             .iter()
@@ -24,11 +26,32 @@ impl SpmImage {
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
         let diff = max - min;
-        let pixels: Vec<u8> = self.img_data
+        let pixels: Vec<u8> = self
+            .img_data
             .iter()
             .map(|x| ((x - min) / diff * 255.0) as u8)
             .collect();
+        pixels
+    }
+
+    pub fn to_png_bytes(&self) -> Vec<u8> {
+        let pixels = self.norm();
+        let b: ImageBuffer<Luma<u8>, Vec<u8>> =
+            ImageBuffer::from_vec(self.xres as u32, self.yres as u32, pixels)
+                .expect("to create image buffer");
+        let mut png_bytes: Vec<u8> = Vec::new();
+        b.write_to(
+            &mut Cursor::new(&mut png_bytes),
+            image::ImageOutputFormat::Png,
+        )
+        .ok();
+        png_bytes
+    }
+
+    pub fn save_png(&self) {
         let out_name = format!("{}.png", self.img_id);
+        let pixels = self.norm();
+
         image::save_buffer(
             out_name,
             &pixels,
@@ -36,7 +59,7 @@ impl SpmImage {
             self.yres as u32,
             image::ColorType::L8,
         )
-        .unwrap();
+        .ok();
     }
 
     pub fn correct_plane(&mut self) -> &Self {
