@@ -3,6 +3,8 @@ use std::io::Cursor;
 use image::{ImageBuffer, Luma};
 use nalgebra::{DMatrix, DVector};
 
+use crate::rocket::ROCKET;
+
 #[derive(Debug)]
 pub struct SpmImage {
     pub img_id: String,
@@ -36,11 +38,12 @@ impl SpmImage {
 
     pub fn to_png_bytes(&self) -> Vec<u8> {
         let pixels = self.norm();
-        let b: ImageBuffer<Luma<u8>, Vec<u8>> =
+        let img_buffer: ImageBuffer<Luma<u8>, Vec<u8>> =
             ImageBuffer::from_vec(self.xres as u32, self.yres as u32, pixels)
                 .expect("to create image buffer");
+        let rgba = img_buffer.expand_palette(&ROCKET, None);
         let mut png_bytes: Vec<u8> = Vec::new();
-        b.write_to(
+        rgba.write_to(
             &mut Cursor::new(&mut png_bytes),
             image::ImageOutputFormat::Png,
         )
