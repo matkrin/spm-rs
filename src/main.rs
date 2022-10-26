@@ -56,13 +56,22 @@ struct MyApp {
 
 impl Default for MyApp {
     fn default() -> Self {
-        let mulfile = read_mul("./tests/test_files/stm-aarhus-flm.flm").unwrap();
-        Self {
-            images: mulfile.iter().map(|m| RetainedImage::from_image_bytes(
-                m.img_id.clone(),
-                &m.img_data.to_png_bytes(),
-            )
-            .unwrap()).collect(),
+        let args = Args::parse();
+        if args.filename.ends_with(".mul") || args.filename.ends_with(".flm") {
+            let mut mulfile = read_mul(&args.filename).unwrap();
+            Self {
+                images: mulfile.iter_mut().map(|m| {
+                    m.img_data.correct_plane();
+                    m.img_data.correct_lines();
+
+                    RetainedImage::from_image_bytes(m.img_id.clone(), &m.img_data.to_png_bytes())
+                }
+                .unwrap()).collect(),
+            }
+        } else if args.filename.ends_with(".Z_mtrx") {
+            unimplemented!();
+        } else {
+            unimplemented!();
         }
     }
 }
@@ -70,18 +79,17 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-
-            egui::Grid::new("grod").spacing(egui::vec2(5.0, 5.0)).show(ui, |ui| {
-                for (i, img) in self.images.iter().enumerate() {
-                    ui.add(
-                        egui::Image::new(img.texture_id(ctx), egui::vec2(256.0, 256.0))
-                    );
-                    if (i + 1) % 5 == 0 {
-                        ui.end_row();
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                egui::Grid::new("grod").spacing(egui::vec2(5.0, 5.0)).show(ui, |ui| {
+                    for (i, img) in self.images.iter().enumerate() {
+                        ui.add(
+                            egui::Image::new(img.texture_id(ctx), egui::vec2(256.0, 256.0))
+                        );
+                        if (i + 1) % 5 == 0 {
+                            ui.end_row();
+                        }
                     }
-                }
-
-
+                });
             });
 
 
