@@ -44,7 +44,7 @@ pub struct MulImage {
 }
 
 // Always length 21
-fn read_mul_string(cursor: &mut Cursor<&Vec<u8>>) -> String {
+fn read_mul_string(cursor: &mut Cursor<&[u8]>) -> String {
     read_string(cursor, 21)
 }
 
@@ -62,7 +62,7 @@ fn read_mul_pixels(buffer: &[u8], zscale: i32) -> Vec<f64> {
     pixels
 }
 
-fn read_mul_img_data(cursor: &mut Cursor<&Vec<u8>>, num_pixels: i32, zscale: i32) -> Vec<f64> {
+fn read_mul_img_data(cursor: &mut Cursor<&[u8]>, num_pixels: i32, zscale: i32) -> Vec<f64> {
     let mut buffer = vec![0; (num_pixels * 2) as usize];
     cursor.read_exact(&mut buffer).unwrap();
     read_mul_pixels(&buffer, zscale)
@@ -80,7 +80,7 @@ fn read_data_points(buffer: &[u8]) -> Vec<f64> {
     data_points
 }
 
-fn read_point_scan(cursor: &mut Cursor<&Vec<u8>>, num_data_points: i32) -> Vec<f64> {
+fn read_point_scan(cursor: &mut Cursor<&[u8]>, num_data_points: i32) -> Vec<f64> {
     let mut buffer = vec![0; (num_data_points * 2) as usize];
     cursor.read_exact(&mut buffer).unwrap();
     read_data_points(&buffer)
@@ -93,7 +93,7 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
 
     let bytes = read(filename)?;
     let file_len = bytes.len();
-    let mut cursor = Cursor::new(&bytes);
+    let mut cursor = Cursor::new(bytes.as_slice());
 
     let _nr = read_i16_le(&mut cursor);
     let adr = read_i32_le(&mut cursor);
@@ -268,7 +268,7 @@ mod tests {
         let s = "Hello this is a test!";
         assert_eq!(21, s.len());
         let buffer = s.as_bytes().to_vec();
-        let mut cursor = Cursor::new(&buffer);
+        let mut cursor = Cursor::new(buffer.as_slice());
         assert_eq!(read_mul_string(&mut cursor), s);
     }
 }

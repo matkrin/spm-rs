@@ -43,7 +43,7 @@ pub fn get_param_info(filename: &str) -> Result<ParamData> {
     let basename = Path::new(filename).file_name().unwrap().to_str().unwrap();
     let paramfile = format!("{}_0001.mtrx", filename.split_once("--").unwrap().0);
     let bytes = read(paramfile).unwrap();
-    let mut cursor = Cursor::new(&bytes);
+    let mut cursor = Cursor::new(bytes.as_slice());
     let magic_header = read_magic_header(&mut cursor);
     assert_eq!(magic_header, "ONTMATRX0101");
 

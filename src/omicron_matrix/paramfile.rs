@@ -43,7 +43,7 @@ pub enum MatrixType {
 // returns a Vec of all IdentBlock in the paramfile
 pub fn _read_omicron_matrix_paramfile_full(filename: &str) -> Vec<IdentBlock> {
     let bytes = read(filename).unwrap();
-    let mut cursor = Cursor::new(&bytes);
+    let mut cursor = Cursor::new(bytes.as_slice());
     let magic_header = read_magic_header(&mut cursor);
     assert_eq!(magic_header, "ONTMATRX0101");
 
@@ -58,7 +58,7 @@ pub fn _read_omicron_matrix_paramfile_full(filename: &str) -> Vec<IdentBlock> {
     v
 }
 
-pub fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+pub fn read_ident_block(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let ident: String = read_matrix_type(cursor);
 
     match ident.as_str() {
@@ -87,7 +87,7 @@ pub fn read_ident_block(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 // META
-fn read_meta(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_meta(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -107,7 +107,7 @@ fn read_meta(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 //EXPD
-fn read_expd(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_expd(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -123,7 +123,7 @@ fn read_expd(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 // FSEQ
-fn read_fseq(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_fseq(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     // let len = read_u32_le(cursor);
     // let time = read_u32_le(cursor);
     skip(cursor, 20);
@@ -133,7 +133,7 @@ fn read_fseq(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 // EXPS contains INST and CNXS
 // therefore len of exps contains len of inst and CNXS
 // reading of those blocks is also handled by read_ident_block
-fn read_exps(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_exps(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -144,7 +144,7 @@ fn read_exps(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // GENL
 // this block is nested first in EXPS
-fn read_genl(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_genl(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
 
     let a = read_matrix_string(cursor);
@@ -155,7 +155,7 @@ fn read_genl(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // INST
 // this block is nested second in EXPS
-fn read_inst(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_inst(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let len = read_u32_le(cursor);
 
     let mut position = cursor.position();
@@ -180,7 +180,7 @@ fn read_inst(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // CNXS
 // this block is nested third in EXPS
-fn read_cnxs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_cnxs(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let len = read_u32_le(cursor);
 
     let mut position = cursor.position();
@@ -203,7 +203,7 @@ fn read_cnxs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 // EEPA
-fn read_eepa(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_eepa(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -237,7 +237,7 @@ fn read_eepa(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // INCI
 // state of experiment
-fn read_inci(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_inci(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -249,7 +249,7 @@ fn read_inci(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // MARK
 // calibration of system
-fn read_mark(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_mark(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -260,7 +260,7 @@ fn read_mark(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // VIEW
 // scanning windows settings
-fn read_view(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_view(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -271,7 +271,7 @@ fn read_view(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // PROC
 // processors of scanning windows (plugins, e.g. CurveAverager, Despiker)
-fn read_proc(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_proc(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -281,7 +281,7 @@ fn read_proc(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 // PMOD
-fn read_pmod(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_pmod(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -310,7 +310,7 @@ fn read_pmod(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // CCSY
 // has nested blocks DICT, CHCS, SCAN, XFER
-fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_ccsy(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unused = read_u32_le(cursor);
@@ -321,7 +321,7 @@ fn read_ccsy(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // DICT
 // nested in CCSY
-fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_dict(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _ = read_u32_le(cursor); // no time in here
     let _unused = read_u32_le(cursor);
@@ -356,7 +356,7 @@ fn read_dict(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // CHCS
 // netsted in CCSY
-fn read_chcs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_chcs(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     // println!("CHCS len: {}", _len);
 
@@ -405,7 +405,7 @@ fn read_chcs(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // SCAN
 // netsted in CCSY
-fn read_scan(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_scan(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     // println!("SCAN len: {}", _len);
     //
@@ -420,7 +420,7 @@ fn read_scan(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 
 // XFER
 // netsted in CCSY
-fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_xfer(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
 
     let mut position = cursor.position();
@@ -452,7 +452,7 @@ fn read_xfer(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 // BREF
-fn read_bref(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_bref(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unbytes = read_u32_le(cursor);
@@ -464,7 +464,7 @@ fn read_bref(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
 }
 
 // EOED
-fn read_eoed(cursor: &mut Cursor<&Vec<u8>>) -> IdentBlock {
+fn read_eoed(cursor: &mut Cursor<&[u8]>) -> IdentBlock {
     let _len = read_u32_le(cursor);
     let _time = read_u32_le(cursor);
     let _unbytes = read_u32_le(cursor);

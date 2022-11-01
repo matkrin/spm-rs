@@ -23,7 +23,7 @@ pub struct ScanData {
 pub fn read_omicron_matrix_scanfile(filename: &str) -> ScanData {
     let bytes = read(filename).unwrap();
     let file_length = bytes.len();
-    let mut cursor = Cursor::new(&bytes);
+    let mut cursor = Cursor::new(bytes.as_slice());
 
     let magic_header = read_magic_header(&mut cursor);
     assert_eq!(magic_header, "ONTMATRX0101");
@@ -58,7 +58,7 @@ pub fn read_omicron_matrix_scanfile(filename: &str) -> ScanData {
 //     }
 // }
 
-fn read_bklt(cursor: &mut Cursor<&Vec<u8>>) -> DateTime<Utc> {
+fn read_bklt(cursor: &mut Cursor<&[u8]>) -> DateTime<Utc> {
     let ident: String = read_matrix_type(cursor);
     assert_eq!(ident, "BKLT");
     let _len = read_u32_le(cursor);
@@ -77,7 +77,7 @@ fn read_bklt(cursor: &mut Cursor<&Vec<u8>>) -> DateTime<Utc> {
     // IdentBlock::BKLT(t)
 }
 
-fn read_desc(cursor: &mut Cursor<&Vec<u8>>) -> HashMap<String, u32> {
+fn read_desc(cursor: &mut Cursor<&[u8]>) -> HashMap<String, u32> {
     let ident: String = read_matrix_type(cursor);
     assert_eq!(ident, "DESC");
     let _channel_hash = read_u64_le(cursor);
@@ -103,7 +103,7 @@ fn read_desc(cursor: &mut Cursor<&Vec<u8>>) -> HashMap<String, u32> {
 }
 
 // TODO: num images
-fn read_data(cursor: &mut Cursor<&Vec<u8>>) -> Vec<i32> {
+fn read_data(cursor: &mut Cursor<&[u8]>) -> Vec<i32> {
 
     let ident: String = read_matrix_type(cursor);
     assert_eq!(ident, "DATA");
