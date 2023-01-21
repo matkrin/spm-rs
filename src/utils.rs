@@ -103,6 +103,16 @@ pub fn read_f64_le(cursor: &mut Cursor<&[u8]>) -> f64 {
     read_f64_le_bytes(&buffer)
 }
 
+fn read_f32_le_bytes(buffer: &[u8]) -> f32 {
+    f32::from_le_bytes(buffer[..4].try_into().unwrap())
+}
+
+pub fn read_f32_le(cursor: &mut Cursor<&[u8]>) -> f32 {
+    let mut buffer = [0; 4];
+    cursor.read_exact(&mut buffer).unwrap();
+    read_f32_le_bytes(&buffer)
+}
+
 
 #[cfg(test)]
 mod tests {
