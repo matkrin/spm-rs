@@ -191,21 +191,24 @@ pub fn read_ibw(filename: &str) -> Result<()> {
 
     let data = read_numeric_data(&mut cursor, type_, npnts);
 
-    // println!("data: {:?}", data);
-    match data {
-        NumericData::Float64(v) => println!("{}", v.len()),
-        _ => unreachable!(),
+    println!("data: {:?}", data);
+    // match data {
+    //     NumericData::Float64(v) => println!("{}", v.len()),
+    //     _ => unreachable!(),
+    // }
+
+
+    // version 1,2,3 have 16 bytes of padding after numeric wave data
+    if version == 1 || version == 2 || version == 3 {
+        let pos = cursor.position();
+        cursor.set_position(pos + 16);
     }
 
-    // version 2 has 16 bytes of padding
-    match version {
-        2 => {
-            let pos = cursor.position();
-            cursor.set_position(pos + 16);
-        },
-        5 => {},
-        _ => unreachable!(),
-    }
+    // Optional Data
+    // v1: no optional data
+    // v2: wave note data
+    // v3: wave note data, wave dependency formula
+    // v5: wave dependency formula, wave note data, extended data units data, extended dimension units data, dimension label data, String indices used for text waves only
 
     let note_size = match bin_header {
         BinHeader::V2(bh) => bh.note_size,
@@ -216,7 +219,7 @@ pub fn read_ibw(filename: &str) -> Result<()> {
     let note = read_string(&mut cursor, note_size as usize);
     println!("note: {}", note.replace("\r", "\n"));
     println!("note len: {}", note.len());
-    println!("pos: {}", cursor.position());
+    println!("pos after note: {}", cursor.position());
 
 
     Ok(())
