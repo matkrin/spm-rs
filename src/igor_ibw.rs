@@ -85,17 +85,17 @@ pub struct WaveHeader2 {
     pub file_name: u32,
     pub data_units: String,
     pub x_units: String,
-    pub npnts: i32, // Number of data points in wave.
+    pub npnts: i32,      // Number of data points in wave.
     pub a_modified: i16, // Used in memory only. Write zero. Ignore on read.
     pub hs_a: f64,
-    pub hs_b: f64, // X value for point p = hsA*p + hsB
+    pub hs_b: f64,        // X value for point p = hsA*p + hsB
     pub w_modified: i16,  // Used in memory only. Write zero. Ignore on read.
     pub sw_modified: i16, // Used in memory only. Write zero. Ignore on read.
     pub fs_valid: i16,    // True if full scale values have meaning.
     pub top_full_scale: f64,
     pub bot_full_scale: f64, // The min full scale value for wave.
-    pub use_bits: char,  // Used in memory only. Write zero. Ignore on read.
-    pub kind_bits: char, // Reserved. Write zero. Ignore on read.
+    pub use_bits: char,      // Used in memory only. Write zero. Ignore on read.
+    pub kind_bits: char,     // Reserved. Write zero. Ignore on read.
     pub formula: u32,
     pub dep_id: i32,        // Used in memory only. Write zero. Ignore on read.
     pub creation_date: u32, // DateTime of creation. Not used in version 1 files.
@@ -141,7 +141,7 @@ pub struct WaveHeader5 {
     pub whpad4: i16,
     pub src_fldr: i16,
     pub file_name: u32,
-    pub s_indeces: i32, 
+    pub s_indeces: i32,
 }
 
 #[derive(Debug)]
@@ -161,11 +161,10 @@ pub fn read_ibw(filename: &str) -> Result<()> {
     let version = read_i16_le(&mut cursor);
     cursor.set_position(0);
 
-
     let bin_header = match version {
         2 => read_bin_header_2(&mut cursor),
         5 => read_bin_header_5(&mut cursor),
-        _ => unreachable!("Not a version 2 or version 5 bin header")
+        _ => unreachable!("Not a version 2 or version 5 bin header"),
     };
 
     let wave_header = match version {
@@ -188,7 +187,6 @@ pub fn read_ibw(filename: &str) -> Result<()> {
         WaveHeader::V5(wh) => wh.type_,
     };
 
-
     let data = read_numeric_data(&mut cursor, type_, npnts);
 
     println!("data: {:?}", data);
@@ -196,7 +194,6 @@ pub fn read_ibw(filename: &str) -> Result<()> {
     //     NumericData::Float64(v) => println!("{}", v.len()),
     //     _ => unreachable!(),
     // }
-
 
     // version 1,2,3 have 16 bytes of padding after numeric wave data
     if version == 1 || version == 2 || version == 3 {
@@ -210,17 +207,71 @@ pub fn read_ibw(filename: &str) -> Result<()> {
     // v3: wave note data, wave dependency formula
     // v5: wave dependency formula, wave note data, extended data units data, extended dimension units data, dimension label data, String indices used for text waves only
 
-    let note_size = match bin_header {
+    // wave note
+    let note_size = match &bin_header {
         BinHeader::V2(bh) => bh.note_size,
         BinHeader::V5(bh) => bh.note_size,
         _ => unreachable!(),
     };
 
-    let note = read_string(&mut cursor, note_size as usize);
-    println!("note: {}", note.replace("\r", "\n"));
-    println!("note len: {}", note.len());
+    if note_size != 0 {
+        let note = read_string(&mut cursor, note_size as usize);
+        println!("note: {}", note.replace("\r", "\n"));
+    }
+
     println!("pos after note: {}", cursor.position());
 
+    if version == 5 {
+        // extended data units
+        let data_e_units_size = match &bin_header {
+            // BinHeader::V2(bh) => bh.data_e_units_size,
+            BinHeader::V5(bh) => bh.data_e_units_size,
+            _ => unreachable!(),
+        };
+
+        if data_e_units_size != 0 {
+            let extended_data_units = read_string(&mut cursor, data_e_units_size as usize);
+            dbg!(extended_data_units);
+            println!("pos after extended_data_units: {}", cursor.position());
+        }
+
+        // extended dimension units
+        let dim_e_units_size = match &bin_header {
+            BinHeader::V5(bh) => bh.dim_e_units_size,
+            _ => unreachable!(),
+        };
+
+        let extended_dimension_units = dim_e_units_size
+            .iter()
+            .map(|i| {
+                if *i != 0 {
+                    read_string(&mut cursor, *i as usize)
+                } else {
+                    "".to_string()
+                }
+            })
+            .collect::<Vec<String>>();
+
+        // dimension labels
+        let dim_labels_size = match &bin_header {
+            BinHeader::V5(bh) => bh.dim_labels_size,
+            _ => unreachable!(),
+        };
+
+        let dimension_labels = dim_labels_size
+            .iter()
+            .map(|i| {
+                if *i != 0 {
+                    read_string(&mut cursor, *i as usize)
+                } else {
+                    "".to_string()
+                }
+            })
+            .collect::<Vec<String>>();
+
+
+    }
+    println!("EOF cursor position: {}", cursor.position());
 
     Ok(())
 }
@@ -301,7 +352,6 @@ fn read_wave_header_2(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
         wave_note_h,
     })
 }
-
 
 fn read_bin_header_5(cursor: &mut Cursor<&[u8]>) -> BinHeader {
     let version = read_i16_le(cursor);
@@ -391,7 +441,7 @@ fn read_wave_header_5(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
     }
 
     let wave_note_h = read_u32_le(cursor);
-    
+
     let mut wh_unused = [0_i32; 16];
     for i in wh_unused.iter_mut() {
         *i = read_i32_le(cursor);
@@ -399,7 +449,7 @@ fn read_wave_header_5(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
     let a_modified = read_i16_le(cursor);
     let w_modified = read_i16_le(cursor);
     let sw_modified = read_i16_le(cursor);
-    
+
     let mut use_bits = [0_u8; 1];
     cursor.read_exact(&mut use_bits).unwrap();
 
@@ -452,7 +502,11 @@ fn read_wave_header_5(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
     })
 }
 
-fn read_numeric_data(cursor: &mut Cursor<&[u8]>, data_type: i16, num_data_points: i32) -> NumericData {
+fn read_numeric_data(
+    cursor: &mut Cursor<&[u8]>,
+    data_type: i16,
+    num_data_points: i32,
+) -> NumericData {
     match data_type {
         0 => todo!("Text Waves"),
         1 => todo!("Complex"),
@@ -462,7 +516,7 @@ fn read_numeric_data(cursor: &mut Cursor<&[u8]>, data_type: i16, num_data_points
                 v.push(read_f32_le(cursor));
             }
             NumericData::Float32(v)
-        },
+        }
         3 => todo!("Complex 64"),
         4 => {
             let mut v = Vec::with_capacity((num_data_points / 8) as usize);
@@ -470,7 +524,7 @@ fn read_numeric_data(cursor: &mut Cursor<&[u8]>, data_type: i16, num_data_points
                 v.push(read_f64_le(cursor));
             }
             NumericData::Float64(v)
-        },
+        }
         5 => todo!("Complex 128"),
         8 => todo!("Int8 Data"),
         9 => todo!("Complex Int8"),
@@ -480,7 +534,7 @@ fn read_numeric_data(cursor: &mut Cursor<&[u8]>, data_type: i16, num_data_points
                 v.push(read_i16_le(cursor));
             }
             NumericData::Int16(v)
-        },
+        }
         0x11 => todo!("Complex Int16"),
 
         0x20 => {
@@ -489,7 +543,7 @@ fn read_numeric_data(cursor: &mut Cursor<&[u8]>, data_type: i16, num_data_points
                 v.push(read_i32_le(cursor));
             }
             NumericData::Int32(v)
-        },
+        }
         0x21 => todo!("Complex Int32"),
 
         0x48 => todo!("UInt8 Data"),
