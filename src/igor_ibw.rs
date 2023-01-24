@@ -7,6 +7,23 @@ use std::{
 use crate::utils::{read_f32_le, read_f64_le, read_i16_le, read_i32_le, read_string, read_u32_le};
 
 #[derive(Debug)]
+pub struct Ibw {
+    // creation_date: 
+    // mod_date:
+    pub npnts: i32,
+    pub bname: String,
+    pub n_dim: [i32; 4],
+    pub x_step: [f64; 4],
+    pub x_start: [f64; 4],
+    pub data_units: String,
+    pub data: NumericData,
+    pub note: String,
+    pub extended_data_units: Option<String>,
+    pub dim_e_units: Option<Vec<String>>,
+    pub dim_labels: Option<Vec<String>>,
+} 
+
+#[derive(Debug)]
 pub enum BinHeader {
     V1(BinHeader1),
     V2(BinHeader2),
@@ -153,10 +170,9 @@ pub enum NumericData {
     Float64(Vec<f64>),
 }
 
-pub fn read_ibw(filename: &str) -> Result<()> {
+pub fn read_ibw(filename: &str) -> Result<Ibw> {
     let bytes = read(filename)?;
     let file_len = bytes.len();
-    println!("file len: {}", file_len);
     let mut cursor = Cursor::new(bytes.as_slice());
     let version = read_i16_le(&mut cursor);
     cursor.set_position(0);
@@ -173,9 +189,6 @@ pub fn read_ibw(filename: &str) -> Result<()> {
         _ => unreachable!("Not a version 2 or version 5 wave header"),
     };
 
-    println!("bin_header: {:#?}", bin_header);
-    println!("wave_header: {:#?}", wave_header);
-    println!("cursor position: {}", cursor.position());
 
     let npnts = match &wave_header {
         WaveHeader::V2(wh) => wh.npnts,
@@ -187,13 +200,9 @@ pub fn read_ibw(filename: &str) -> Result<()> {
         WaveHeader::V5(wh) => wh.type_,
     };
 
+    // TODO reshape data maybe
     let data = read_numeric_data(&mut cursor, type_, npnts);
 
-    println!("data: {:?}", data);
-    // match data {
-    //     NumericData::Float64(v) => println!("{}", v.len()),
-    //     _ => unreachable!(),
-    // }
 
     // version 1,2,3 have 16 bytes of padding after numeric wave data
     if version == 1 || version == 2 || version == 3 {
@@ -207,73 +216,108 @@ pub fn read_ibw(filename: &str) -> Result<()> {
     // v3: wave note data, wave dependency formula
     // v5: wave dependency formula, wave note data, extended data units data, extended dimension units data, dimension label data, String indices used for text waves only
 
-    // wave note
-    let note_size = match &bin_header {
-        BinHeader::V2(bh) => bh.note_size,
-        BinHeader::V5(bh) => bh.note_size,
-        _ => unreachable!(),
+    let note = read_note(&mut cursor, &bin_header);
+    let extended_data_units = read_extended_data_units(&mut cursor, &bin_header);
+    let dim_e_units = read_dim_e_units(&mut cursor, &bin_header);
+    let dim_labels = read_dim_labels(&mut cursor, &bin_header);
+    let bname = match &wave_header {
+        WaveHeader::V2(wh) => wh.bname.trim_matches(char::from(0)).to_string(),
+        WaveHeader::V5(wh) => wh.bname.trim_matches(char::from(0)).to_string(),
+    };
+    let n_dim = match &wave_header {
+        WaveHeader::V2(wh) => [wh.npnts, 0, 0, 0],
+        WaveHeader::V5(wh) => wh.n_dim,
+    };
+    let x_step = match &wave_header {
+        WaveHeader::V2(wh) => [wh.hs_a, 0_f64, 0_f64, 0_f64],
+        WaveHeader::V5(wh) => wh.sf_a,
+    };
+    let x_start = match &wave_header {
+        WaveHeader::V2(wh) => [wh.hs_b, 0_f64, 0_f64, 0_f64],
+        WaveHeader::V5(wh) => wh.sf_b,
+    };
+    let data_units = match &wave_header {
+        WaveHeader::V2(wh) => wh.data_units.trim_matches(char::from(0)).to_string(),
+        WaveHeader::V5(wh) => wh.data_units.trim_matches(char::from(0)).to_string(),
     };
 
-    if note_size != 0 {
-        let note = read_string(&mut cursor, note_size as usize);
-        println!("note: {}", note.replace("\r", "\n"));
+    Ok(Ibw{
+        npnts,
+        bname,
+        n_dim,
+        x_step,
+        x_start,
+        data_units,
+        data,
+        note,
+        extended_data_units,
+        dim_e_units,
+        dim_labels,
+    })
+}
+
+fn read_note(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> String {
+    let note_size = match bin_header {
+        BinHeader::V2(bh) => bh.note_size,
+        BinHeader::V5(bh) => bh.note_size,
+        _ => unreachable!("Only version 2 and version 5 bin headers implemented"),
+    };
+
+    if note_size != 0  {
+        read_string(cursor, note_size as usize).replace("\r", "\n")
+    } else {
+        "".to_string()
     }
+}
 
-    println!("pos after note: {}", cursor.position());
-
-    if version == 5 {
-        // extended data units
-        let data_e_units_size = match &bin_header {
-            // BinHeader::V2(bh) => bh.data_e_units_size,
-            BinHeader::V5(bh) => bh.data_e_units_size,
-            _ => unreachable!(),
-        };
-
-        if data_e_units_size != 0 {
-            let extended_data_units = read_string(&mut cursor, data_e_units_size as usize);
-            dbg!(extended_data_units);
-            println!("pos after extended_data_units: {}", cursor.position());
+fn read_extended_data_units(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> Option<String> {
+    // extended data units
+    match bin_header {
+        BinHeader::V5(bh) => {
+            if bh.data_e_units_size != 0 {
+                Some(read_string(cursor, bh.data_e_units_size as usize))
+            } else {
+                None
+            }
         }
-
-        // extended dimension units
-        let dim_e_units_size = match &bin_header {
-            BinHeader::V5(bh) => bh.dim_e_units_size,
-            _ => unreachable!(),
-        };
-
-        let extended_dimension_units = dim_e_units_size
-            .iter()
-            .map(|i| {
-                if *i != 0 {
-                    read_string(&mut cursor, *i as usize)
-                } else {
-                    "".to_string()
-                }
-            })
-            .collect::<Vec<String>>();
-
-        // dimension labels
-        let dim_labels_size = match &bin_header {
-            BinHeader::V5(bh) => bh.dim_labels_size,
-            _ => unreachable!(),
-        };
-
-        let dimension_labels = dim_labels_size
-            .iter()
-            .map(|i| {
-                if *i != 0 {
-                    read_string(&mut cursor, *i as usize)
-                } else {
-                    "".to_string()
-                }
-            })
-            .collect::<Vec<String>>();
-
-
+        _ => None,
     }
-    println!("EOF cursor position: {}", cursor.position());
+}
 
-    Ok(())
+fn read_dim_e_units(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> Option<Vec<String>> {
+    match bin_header {
+        BinHeader::V5(bh) => Some(
+            bh.dim_e_units_size
+                .iter()
+                .map(|i| {
+                    if *i != 0 {
+                        read_string(cursor, *i as usize)
+                    } else {
+                        "".to_string()
+                    }
+                })
+                .collect::<Vec<String>>(),
+        ),
+        _ => None,
+    }
+}
+
+fn read_dim_labels(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> Option<Vec<String>> {
+    match bin_header {
+        BinHeader::V5(bh) => Some(
+            bh.dim_labels_size
+                .iter()
+                .map(|i| {
+                    if *i != 0 {
+                        read_string(cursor, *i as usize)
+                    } else {
+                        "".to_string()
+                    }
+                })
+                .collect::<Vec<String>>(),
+        ),
+        _ => None,
+    }
 }
 
 fn read_bin_header_2(cursor: &mut Cursor<&[u8]>) -> BinHeader {
