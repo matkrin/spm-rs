@@ -35,7 +35,9 @@ fn main() -> Result<()> {
         // omicron_matrix.img_data_bw.save_png();
     } else if args.filename.ends_with(".ibw") {
         let wave = read_ibw(&args.filename)?;
-        println!("{:?}", wave.bname)
+        dbg!(wave);
+        // println!("{}", wave.data[0]);
+        // println!("{:?}", wave.bname)
     }
     Ok(())
 }

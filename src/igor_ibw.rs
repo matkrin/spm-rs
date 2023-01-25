@@ -4,11 +4,14 @@ use std::{
     io::{Cursor, Read},
 };
 
-use crate::utils::{read_f32_le, read_f64_le, read_i16_le, read_i32_le, read_string, read_u32_le};
+use crate::utils::{
+    read_f32_le, read_f64_le, read_i16_le, read_i32_le, read_i8_le, read_string, read_u16_le,
+    read_u32_le, read_u8_le,
+};
 
 #[derive(Debug)]
 pub struct Ibw {
-    // creation_date: 
+    // creation_date:
     // mod_date:
     pub npnts: i32,
     pub bname: String,
@@ -21,7 +24,7 @@ pub struct Ibw {
     pub extended_data_units: Option<String>,
     pub dim_e_units: Option<Vec<String>>,
     pub dim_labels: Option<Vec<String>>,
-} 
+}
 
 #[derive(Debug)]
 pub enum BinHeader {
@@ -161,11 +164,17 @@ pub struct WaveHeader5 {
     pub s_indeces: i32,
 }
 
+// TODO use generics instead
 #[derive(Debug)]
 pub enum NumericData {
     Int8(Vec<i8>),
     Int16(Vec<i16>),
     Int32(Vec<i32>),
+
+    Uint8(Vec<u8>),
+    Uint16(Vec<u16>),
+    Uint32(Vec<u32>),
+
     Float32(Vec<f32>),
     Float64(Vec<f64>),
 }
@@ -189,7 +198,6 @@ pub fn read_ibw(filename: &str) -> Result<Ibw> {
         _ => unreachable!("Not a version 2 or version 5 wave header"),
     };
 
-
     let npnts = match &wave_header {
         WaveHeader::V2(wh) => wh.npnts,
         WaveHeader::V5(wh) => wh.npnts,
@@ -202,7 +210,6 @@ pub fn read_ibw(filename: &str) -> Result<Ibw> {
 
     // TODO reshape data maybe
     let data = read_numeric_data(&mut cursor, type_, npnts);
-
 
     // version 1,2,3 have 16 bytes of padding after numeric wave data
     if version == 1 || version == 2 || version == 3 {
@@ -241,7 +248,7 @@ pub fn read_ibw(filename: &str) -> Result<Ibw> {
         WaveHeader::V5(wh) => wh.data_units.trim_matches(char::from(0)).to_string(),
     };
 
-    Ok(Ibw{
+    Ok(Ibw {
         npnts,
         bname,
         n_dim,
@@ -263,7 +270,7 @@ fn read_note(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> String {
         _ => unreachable!("Only version 2 and version 5 bin headers implemented"),
     };
 
-    if note_size != 0  {
+    if note_size != 0 {
         read_string(cursor, note_size as usize).replace("\r", "\n")
     } else {
         "".to_string()
@@ -570,7 +577,13 @@ fn read_numeric_data(
             NumericData::Float64(v)
         }
         5 => todo!("Complex 128"),
-        8 => todo!("Int8 Data"),
+        8 => {
+            let mut v = Vec::with_capacity((num_data_points) as usize);
+            for _ in 0..num_data_points {
+                v.push(read_i8_le(cursor));
+            }
+            NumericData::Int8(v)
+        }
         9 => todo!("Complex Int8"),
         0x10 => {
             let mut v = Vec::with_capacity((num_data_points / 2) as usize);
@@ -590,13 +603,31 @@ fn read_numeric_data(
         }
         0x21 => todo!("Complex Int32"),
 
-        0x48 => todo!("UInt8 Data"),
+        0x48 => {
+            let mut v = Vec::with_capacity((num_data_points) as usize);
+            for _ in 0..num_data_points {
+                v.push(read_u8_le(cursor));
+            }
+            NumericData::Uint8(v)
+        }
         0x49 => todo!("Complex UInt8"),
 
-        0x50 => todo!("UInt16 Data"),
+        0x50 => {
+            let mut v = Vec::with_capacity((num_data_points / 2) as usize);
+            for _ in 0..num_data_points {
+                v.push(read_u16_le(cursor));
+            }
+            NumericData::Uint16(v)
+        }
         0x51 => todo!("Complex UInt16 Data"),
 
-        0x60 => todo!("UInt32 Data"),
+        0x60 => {
+            let mut v = Vec::with_capacity((num_data_points / 4) as usize);
+            for _ in 0..num_data_points {
+                v.push(read_u32_le(cursor));
+            }
+            NumericData::Uint32(v)
+        }
         0x61 => todo!("Complex UInt32 Data"),
         _ => unreachable!(),
     }
