@@ -1,4 +1,5 @@
 use spm_rs::igor_ibw::read_ibw;
+use spm_rs::igor_ibw::NumericData;
 
 const IBW_MATRIX: &str = "tests/test_files/test_matrix.ibw";
 
@@ -32,11 +33,17 @@ fn test_x_start() {
     assert_eq!(ibw.x_start, [0., 0., 0., 0.]);
 }
 
-// #[test]
-// fn test_data() {
-//     let ibw = read_ibw(IBW_MATRIX).unwrap();
-//     assert_eq!(ibw.data, );
-// }
+#[test]
+fn test_data() {
+    let ibw = read_ibw(IBW_MATRIX).unwrap();
+    let data = if let NumericData::Float64(d) = ibw.data {
+        d
+    } else {
+        vec![0.]
+    };
+    assert_eq!(data[0..3], vec![1., 5., 9.]);
+    assert_eq!(data[data.len() - 3..], vec![8., 12., 16.]);
+}
 
 #[test]
 fn test_note() {
