@@ -1,15 +1,6 @@
 use std::io::{Cursor, Read};
 use std::str;
 
-pub fn flip_img_data(img_data: Vec<f64>, xres: u32, yres: u32) -> Vec<f64> {
-    let mut flipped: Vec<f64> = Vec::with_capacity((xres * yres) as usize);
-    for i in (0..yres).rev() {
-        let mut line = img_data[(i * xres) as usize..((i + 1) * xres) as usize].to_owned();
-        flipped.append(&mut line);
-    }
-    flipped
-}
-
 pub trait Bytereading {
     fn skip(&mut self, num_bytes: u64);
     fn read_matrix_type(&mut self) -> String;
@@ -113,7 +104,6 @@ impl Bytereading for Cursor<&[u8]> {
     }
 }
 
-
 pub fn read_utf16_bytes(slice: &[u8]) -> String {
     let iter = (0..(slice.len() / 2)).map(|i| u16::from_le_bytes([slice[2 * i], slice[2 * i + 1]]));
     let result = std::char::decode_utf16(iter)
@@ -126,30 +116,25 @@ fn read_str(buffer: &[u8]) -> &str {
     str::from_utf8(buffer).expect("to read_str")
 }
 
-
 // i8
 fn read_i8_le_bytes(buffer: &[u8]) -> i8 {
     i8::from_le_bytes(buffer[..1].try_into().unwrap())
 }
-
 
 // u8
 fn read_u8_le_bytes(buffer: &[u8]) -> u8 {
     u8::from_le_bytes(buffer[..1].try_into().unwrap())
 }
 
-
 // i16
 pub fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
     i16::from_le_bytes(buffer[..2].try_into().unwrap())
 }
 
-
 // u16
 fn read_u16_le_bytes(buffer: &[u8]) -> u16 {
     u16::from_le_bytes(buffer[..2].try_into().unwrap())
 }
-
 
 // i32
 fn read_i32_le_bytes(buffer: &[u8]) -> i32 {
@@ -161,24 +146,20 @@ fn read_u32_le_bytes(buffer: &[u8]) -> u32 {
     u32::from_le_bytes(buffer[..4].try_into().unwrap())
 }
 
-
 // u64
 fn read_u64_le_bytes(buffer: &[u8]) -> u64 {
     u64::from_le_bytes(buffer[..8].try_into().unwrap())
 }
-
 
 // f32
 fn read_f32_le_bytes(buffer: &[u8]) -> f32 {
     f32::from_le_bytes(buffer[..4].try_into().unwrap())
 }
 
-
 // f64
 fn read_f64_le_bytes(buffer: &[u8]) -> f64 {
     f64::from_le_bytes(buffer[..8].try_into().unwrap())
 }
-
 
 #[cfg(test)]
 mod tests {

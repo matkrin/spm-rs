@@ -1,6 +1,6 @@
-mod utils;
-mod rocket;
-mod spm_image;
+pub mod igor_ibw;
 pub mod mulfile;
 pub mod omicron_matrix;
-pub mod igor_ibw;
+mod rocket;
+mod spm_image;
+mod utils;

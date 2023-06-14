@@ -4,8 +4,8 @@ use anyhow::Result;
 
 use crate::omicron_matrix::paraminfo::get_param_info;
 use crate::omicron_matrix::scanfile::read_omicron_matrix_scanfile;
+use crate::spm_image::flip_img_data;
 use crate::spm_image::SpmImage;
-use crate::utils::flip_img_data;
 
 #[derive(Debug)]
 pub struct OmicronMatrix {

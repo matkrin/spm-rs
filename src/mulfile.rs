@@ -7,8 +7,9 @@ use anyhow::Result;
 use chrono::prelude::*;
 use chrono::{DateTime, Utc};
 
+use crate::spm_image::flip_img_data;
 use crate::spm_image::SpmImage;
-use crate::utils::{flip_img_data, Bytereading, read_i16_le_bytes};
+use crate::utils::{read_i16_le_bytes, Bytereading};
 
 #[derive(Debug)]
 pub struct MulImage {

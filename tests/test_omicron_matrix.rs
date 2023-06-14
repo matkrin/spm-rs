@@ -28,10 +28,8 @@ fn test_resolutions() {
     assert_eq!(mtrx.yres, 400);
 }
 
-
 #[test]
 fn test_rotation() {
     let mtrx = read_omicron_matrix(MTRX_FILE).unwrap();
     assert_eq!(mtrx.rotation, 0);
 }
-

@@ -1,12 +1,11 @@
-use clap::Parser;
 use anyhow::Result;
+use clap::Parser;
 use spm_rs::igor_ibw::read_ibw;
 use spm_rs::mulfile::read_mul;
 use spm_rs::omicron_matrix::read_omicron_matrix;
 
-use eframe::egui;
-use egui_extras::RetainedImage;
-
+// use eframe::egui;
+// use egui_extras::RetainedImage;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -41,7 +40,6 @@ fn main() -> Result<()> {
     }
     Ok(())
 }
-
 
 // fn main() {
 //     let options = eframe::NativeOptions {

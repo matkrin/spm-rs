@@ -178,7 +178,7 @@ pub enum NumericData {
 
 pub fn read_ibw(filename: &str) -> Result<Ibw> {
     let bytes = read(filename)?;
-    let file_len = bytes.len();
+    // let file_len = bytes.len();
     let mut cursor = Cursor::new(bytes.as_slice());
     let version = cursor.read_i16_le();
     cursor.set_position(0);

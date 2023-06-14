@@ -16,7 +16,6 @@ pub struct ScanData {
     pub img_data: Vec<i32>,
 }
 
-
 pub fn read_omicron_matrix_scanfile(filename: &str) -> ScanData {
     let bytes = read(filename).unwrap();
     let file_length = bytes.len();
@@ -25,18 +24,16 @@ pub fn read_omicron_matrix_scanfile(filename: &str) -> ScanData {
     let magic_header = cursor.read_magic_header();
     assert_eq!(magic_header, "ONTMATRX0101");
 
-
     // println!("file length: {}", file_length);
     // let mut position = 0;
     // while position < file_length as u64 {
     //     let block = read_ident_block(&mut cursor);
     // }
 
-    
     let scandata = ScanData {
         datetime: read_bklt(&mut cursor),
         desc: read_desc(&mut cursor),
-        img_data:read_data(&mut cursor)
+        img_data: read_data(&mut cursor),
     };
 
     assert_eq!(cursor.position(), file_length as u64);
@@ -101,13 +98,11 @@ fn read_desc(cursor: &mut Cursor<&[u8]>) -> HashMap<String, u32> {
 
 // TODO: num images
 fn read_data(cursor: &mut Cursor<&[u8]>) -> Vec<i32> {
-
     let ident: String = cursor.read_matrix_type();
     assert_eq!(ident, "DATA");
     let len = cursor.read_u32_le();
     // println!("DATA len: {}", len);
     let img_data_len = len / size_of::<u32>() as u32;
-
 
     let mut img_data = Vec::with_capacity(img_data_len as usize);
     // TODO: this is the data for all channels

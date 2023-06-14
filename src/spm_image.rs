@@ -101,3 +101,12 @@ impl SpmImage {
         self
     }
 }
+
+pub fn flip_img_data(img_data: Vec<f64>, xres: u32, yres: u32) -> Vec<f64> {
+    let mut flipped: Vec<f64> = Vec::with_capacity((xres * yres) as usize);
+    for i in (0..yres).rev() {
+        let mut line = img_data[(i * xres) as usize..((i + 1) * xres) as usize].to_owned();
+        flipped.append(&mut line);
+    }
+    flipped
+}
