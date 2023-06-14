@@ -8,7 +8,7 @@ use chrono::prelude::*;
 use chrono::{DateTime, Utc};
 
 use crate::spm_image::SpmImage;
-use crate::utils::{flip_img_data, read_i16_le, read_i16_le_bytes, read_i32_le, read_string};
+use crate::utils::{flip_img_data, Bytereading, read_i16_le_bytes};
 
 #[derive(Debug)]
 pub struct MulImage {
@@ -45,7 +45,7 @@ pub struct MulImage {
 
 // Always length 21
 fn read_mul_string(cursor: &mut Cursor<&[u8]>) -> String {
-    read_string(cursor, 21)
+    cursor.read_string(21)
 }
 
 // Image Data
@@ -95,8 +95,8 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
     let file_len = bytes.len();
     let mut cursor = Cursor::new(bytes.as_slice());
 
-    let _nr = read_i16_le(&mut cursor);
-    let adr = read_i32_le(&mut cursor);
+    let _nr = cursor.read_i16_le();
+    let adr = cursor.read_i32_le();
 
     if adr == 3 {
         cursor
@@ -110,62 +110,62 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
     }
 
     while block_counter * MUL_BLOCK < file_len as i32 {
-        let img_num = read_i16_le(&mut cursor);
-        let size = read_i16_le(&mut cursor);
+        let img_num = cursor.read_i16_le();
+        let size = cursor.read_i16_le();
 
-        let xres = read_i16_le(&mut cursor);
-        let yres = read_i16_le(&mut cursor);
-        let zres = read_i16_le(&mut cursor);
+        let xres = cursor.read_i16_le();
+        let yres = cursor.read_i16_le();
+        let zres = cursor.read_i16_le();
 
-        let year = read_i16_le(&mut cursor);
-        let month = read_i16_le(&mut cursor);
-        let day = read_i16_le(&mut cursor);
-        let hour = read_i16_le(&mut cursor);
-        let minute = read_i16_le(&mut cursor);
-        let second = read_i16_le(&mut cursor);
+        let year = cursor.read_i16_le();
+        let month = cursor.read_i16_le();
+        let day = cursor.read_i16_le();
+        let hour = cursor.read_i16_le();
+        let minute = cursor.read_i16_le();
+        let second = cursor.read_i16_le();
 
-        let xsize = read_i16_le(&mut cursor) / 10; // in nm
-        let ysize = read_i16_le(&mut cursor) / 10; // in nm
+        let xsize = cursor.read_i16_le() / 10; // in nm
+        let ysize = cursor.read_i16_le() / 10; // in nm
 
-        let xoffset = read_i16_le(&mut cursor) / 10; // in nm
-        let yoffset = read_i16_le(&mut cursor) / 10; // in nm
+        let xoffset = cursor.read_i16_le() / 10; // in nm
+        let yoffset = cursor.read_i16_le() / 10; // in nm
 
-        let zscale = read_i16_le(&mut cursor);
-        let tilt = read_i16_le(&mut cursor);
-        let speed = read_i16_le(&mut cursor) / 100; // in s
+        let zscale = cursor.read_i16_le();
+        let tilt = cursor.read_i16_le();
+        let speed = cursor.read_i16_le() / 100; // in s
 
-        let bias = read_i16_le(&mut cursor);
-        let current = read_i16_le(&mut cursor);
+        let bias = cursor.read_i16_le();
+        let current = cursor.read_i16_le();
 
         let sample = read_mul_string(&mut cursor);
         let title = read_mul_string(&mut cursor);
 
-        let postpr = read_i16_le(&mut cursor);
-        let postd1 = read_i16_le(&mut cursor);
-        let mode = read_i16_le(&mut cursor);
-        let currfac = read_i16_le(&mut cursor);
-        let num_pointscans = read_i16_le(&mut cursor);
-        let unitnr = read_i16_le(&mut cursor);
-        let version = read_i16_le(&mut cursor);
+        let postpr = cursor.read_i16_le();
+        let postd1 = cursor.read_i16_le();
+        let mode = cursor.read_i16_le();
+        let currfac = cursor.read_i16_le();
+        let num_pointscans = cursor.read_i16_le();
+        let unitnr = cursor.read_i16_le();
+        let version = cursor.read_i16_le();
 
-        let _spare_48 = read_i16_le(&mut cursor);
-        let _spare_49 = read_i16_le(&mut cursor);
-        let _spare_50 = read_i16_le(&mut cursor);
-        let _spare_51 = read_i16_le(&mut cursor);
-        let _spare_52 = read_i16_le(&mut cursor);
-        let _spare_53 = read_i16_le(&mut cursor);
-        let _spare_54 = read_i16_le(&mut cursor);
-        let _spare_54 = read_i16_le(&mut cursor);
-        let _spare_56 = read_i16_le(&mut cursor);
-        let _spare_57 = read_i16_le(&mut cursor);
-        let _spare_58 = read_i16_le(&mut cursor);
-        let _spare_59 = read_i16_le(&mut cursor);
+        let _spare_48 = cursor.read_i16_le();
+        let _spare_49 = cursor.read_i16_le();
+        let _spare_50 = cursor.read_i16_le();
+        let _spare_51 = cursor.read_i16_le();
+        let _spare_52 = cursor.read_i16_le();
+        let _spare_53 = cursor.read_i16_le();
+        let _spare_54 = cursor.read_i16_le();
+        let _spare_54 = cursor.read_i16_le();
+        let _spare_56 = cursor.read_i16_le();
+        let _spare_57 = cursor.read_i16_le();
+        let _spare_58 = cursor.read_i16_le();
+        let _spare_59 = cursor.read_i16_le();
 
-        let gain = read_i16_le(&mut cursor);
+        let gain = cursor.read_i16_le();
 
-        let _spare_61 = read_i16_le(&mut cursor);
-        let _spare_62 = read_i16_le(&mut cursor);
-        let _spare_63 = read_i16_le(&mut cursor);
+        let _spare_61 = cursor.read_i16_le();
+        let _spare_62 = cursor.read_i16_le();
+        let _spare_63 = cursor.read_i16_le();
 
         let img_data = read_mul_img_data(
             &mut cursor,
@@ -175,24 +175,24 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
 
         if num_pointscans > 0 {
             for _ in 0..num_pointscans {
-                let _ps_size = read_i16_le(&mut cursor);
-                let _ps_type = read_i16_le(&mut cursor);
-                let _ps_time4scan = read_i16_le(&mut cursor);
-                let _ps_minv = read_i16_le(&mut cursor);
-                let _ps_maxv = read_i16_le(&mut cursor);
-                let _ps_xpos = read_i16_le(&mut cursor);
-                let _ps_ypos = read_i16_le(&mut cursor);
-                let _ps_dz = read_i16_le(&mut cursor);
-                let _ps_delay = read_i16_le(&mut cursor);
-                let _ps_version = read_i16_le(&mut cursor);
-                let _ps_indendelay = read_i16_le(&mut cursor);
-                let _ps_xposend = read_i16_le(&mut cursor);
-                let _ps_yposend = read_i16_le(&mut cursor);
-                let _ps_vt_fw = read_i16_le(&mut cursor);
-                let _ps_it_fw = read_i16_le(&mut cursor);
-                let _ps_vt_bw = read_i16_le(&mut cursor);
-                let _ps_it_bw = read_i16_le(&mut cursor);
-                let _ps_lscan = read_i16_le(&mut cursor);
+                let _ps_size = cursor.read_i16_le();
+                let _ps_type = cursor.read_i16_le();
+                let _ps_time4scan = cursor.read_i16_le();
+                let _ps_minv = cursor.read_i16_le();
+                let _ps_maxv = cursor.read_i16_le();
+                let _ps_xpos = cursor.read_i16_le();
+                let _ps_ypos = cursor.read_i16_le();
+                let _ps_dz = cursor.read_i16_le();
+                let _ps_delay = cursor.read_i16_le();
+                let _ps_version = cursor.read_i16_le();
+                let _ps_indendelay = cursor.read_i16_le();
+                let _ps_xposend = cursor.read_i16_le();
+                let _ps_yposend = cursor.read_i16_le();
+                let _ps_vt_fw = cursor.read_i16_le();
+                let _ps_it_fw = cursor.read_i16_le();
+                let _ps_vt_bw = cursor.read_i16_le();
+                let _ps_it_bw = cursor.read_i16_le();
+                let _ps_lscan = cursor.read_i16_le();
 
                 let _ = cursor.seek(SeekFrom::Current((MUL_BLOCK - 18 * 2) as i64));
 

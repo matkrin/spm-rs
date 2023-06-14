@@ -10,24 +10,109 @@ pub fn flip_img_data(img_data: Vec<f64>, xres: u32, yres: u32) -> Vec<f64> {
     flipped
 }
 
-pub fn skip(cursor: &mut Cursor<&[u8]>, num_bytes: u64) {
-    cursor.set_position(cursor.position() + num_bytes);
+pub trait Bytereading {
+    fn skip(&mut self, num_bytes: u64);
+    fn read_matrix_type(&mut self) -> String;
+    fn read_matrix_string(&mut self) -> String;
+    fn read_utf16_string(&mut self, length: usize) -> String;
+    fn read_string(&mut self, length: usize) -> String;
+    fn read_magic_header(&mut self) -> String;
+    fn read_i8_le(&mut self) -> i8;
+    fn read_u8_le(&mut self) -> u8;
+    fn read_i16_le(&mut self) -> i16;
+    fn read_u16_le(&mut self) -> u16;
+    fn read_i32_le(&mut self) -> i32;
+    fn read_u32_le(&mut self) -> u32;
+    fn read_u64_le(&mut self) -> u64;
+    fn read_f32_le(&mut self) -> f32;
+    fn read_f64_le(&mut self) -> f64;
 }
 
-pub fn read_matrix_type(cursor: &mut Cursor<&[u8]>) -> String {
-    read_string(cursor, 4).chars().rev().collect()
+impl Bytereading for Cursor<&[u8]> {
+    fn skip(&mut self, num_bytes: u64) {
+        self.set_position(self.position() + num_bytes);
+    }
+
+    fn read_matrix_type(&mut self) -> String {
+        self.read_string(4).chars().rev().collect()
+    }
+
+    fn read_matrix_string(&mut self) -> String {
+        let string_length = self.read_u32_le();
+        self.read_utf16_string(string_length as usize)
+    }
+
+    fn read_utf16_string(&mut self, length: usize) -> String {
+        let mut buffer = vec![0; length * 2];
+        self.read_exact(&mut buffer).expect("to read");
+        read_utf16_bytes(&buffer)
+    }
+
+    fn read_string(&mut self, length: usize) -> String {
+        let mut buffer = vec![0; length];
+        self.read_exact(&mut buffer).expect("to read");
+        read_str(&buffer).to_owned()
+    }
+
+    fn read_magic_header(&mut self) -> String {
+        self.read_string(12)
+    }
+
+    fn read_i8_le(&mut self) -> i8 {
+        let mut buffer = [0; 1];
+        self.read_exact(&mut buffer).unwrap();
+        read_i8_le_bytes(&buffer)
+    }
+
+    fn read_u8_le(&mut self) -> u8 {
+        let mut buffer = [0; 1];
+        self.read_exact(&mut buffer).unwrap();
+        read_u8_le_bytes(&buffer)
+    }
+
+    fn read_i16_le(&mut self) -> i16 {
+        let mut buffer = [0; 2];
+        self.read_exact(&mut buffer).unwrap();
+        read_i16_le_bytes(&buffer)
+    }
+
+    fn read_u16_le(&mut self) -> u16 {
+        let mut buffer = [0; 2];
+        self.read_exact(&mut buffer).unwrap();
+        read_u16_le_bytes(&buffer)
+    }
+
+    fn read_i32_le(&mut self) -> i32 {
+        let mut buffer = [0; 4];
+        self.read_exact(&mut buffer).unwrap();
+        read_i32_le_bytes(&buffer)
+    }
+
+    fn read_u32_le(&mut self) -> u32 {
+        let mut buffer = [0; 4];
+        self.read_exact(&mut buffer).unwrap();
+        read_u32_le_bytes(&buffer)
+    }
+
+    fn read_u64_le(&mut self) -> u64 {
+        let mut buffer = [0; 8];
+        self.read_exact(&mut buffer).unwrap();
+        read_u64_le_bytes(&buffer)
+    }
+
+    fn read_f32_le(&mut self) -> f32 {
+        let mut buffer = [0; 4];
+        self.read_exact(&mut buffer).unwrap();
+        read_f32_le_bytes(&buffer)
+    }
+
+    fn read_f64_le(&mut self) -> f64 {
+        let mut buffer = [0; 8];
+        self.read_exact(&mut buffer).unwrap();
+        read_f64_le_bytes(&buffer)
+    }
 }
 
-pub fn read_matrix_string(cursor: &mut Cursor<&[u8]>) -> String {
-    let string_length = read_u32_le(cursor);
-    read_utf16_string(cursor, string_length as usize)
-}
-
-pub fn read_utf16_string(cursor: &mut Cursor<&[u8]>, length: usize) -> String {
-    let mut buffer = vec![0; length * 2];
-    cursor.read_exact(&mut buffer).expect("to read");
-    read_utf16_bytes(&buffer)
-}
 
 pub fn read_utf16_bytes(slice: &[u8]) -> String {
     let iter = (0..(slice.len() / 2)).map(|i| u16::from_le_bytes([slice[2 * i], slice[2 * i + 1]]));
@@ -41,69 +126,34 @@ fn read_str(buffer: &[u8]) -> &str {
     str::from_utf8(buffer).expect("to read_str")
 }
 
-pub fn read_string(cursor: &mut Cursor<&[u8]>, length: usize) -> String {
-    let mut buffer = vec![0; length];
-    cursor.read_exact(&mut buffer).expect("to read");
-    read_str(&buffer).to_owned()
-}
-
-pub fn read_magic_header(cursor: &mut Cursor<&[u8]>) -> String {
-    read_string(cursor, 12)
-}
 
 // i8
 fn read_i8_le_bytes(buffer: &[u8]) -> i8 {
     i8::from_le_bytes(buffer[..1].try_into().unwrap())
 }
 
-pub fn read_i8_le(cursor: &mut Cursor<&[u8]>) -> i8 {
-    let mut buffer = [0; 1];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_i8_le_bytes(&buffer)
-}
 
 // u8
 fn read_u8_le_bytes(buffer: &[u8]) -> u8 {
     u8::from_le_bytes(buffer[..1].try_into().unwrap())
 }
 
-pub fn read_u8_le(cursor: &mut Cursor<&[u8]>) -> u8 {
-    let mut buffer = [0; 1];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_u8_le_bytes(&buffer)
-}
 
 // i16
 pub fn read_i16_le_bytes(buffer: &[u8]) -> i16 {
     i16::from_le_bytes(buffer[..2].try_into().unwrap())
 }
 
-pub fn read_i16_le(cursor: &mut Cursor<&[u8]>) -> i16 {
-    let mut buffer = [0; 2];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_i16_le_bytes(&buffer)
-}
 
 // u16
 fn read_u16_le_bytes(buffer: &[u8]) -> u16 {
     u16::from_le_bytes(buffer[..2].try_into().unwrap())
 }
 
-pub fn read_u16_le(cursor: &mut Cursor<&[u8]>) -> u16 {
-    let mut buffer = [0; 2];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_u16_le_bytes(&buffer)
-}
 
 // i32
 fn read_i32_le_bytes(buffer: &[u8]) -> i32 {
     i32::from_le_bytes(buffer[..4].try_into().unwrap())
-}
-
-pub fn read_i32_le(cursor: &mut Cursor<&[u8]>) -> i32 {
-    let mut buffer = [0; 4];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_i32_le_bytes(&buffer)
 }
 
 // u32
@@ -111,44 +161,22 @@ fn read_u32_le_bytes(buffer: &[u8]) -> u32 {
     u32::from_le_bytes(buffer[..4].try_into().unwrap())
 }
 
-pub fn read_u32_le(cursor: &mut Cursor<&[u8]>) -> u32 {
-    let mut buffer = [0; 4];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_u32_le_bytes(&buffer)
-}
 
 // u64
 fn read_u64_le_bytes(buffer: &[u8]) -> u64 {
     u64::from_le_bytes(buffer[..8].try_into().unwrap())
 }
 
-pub fn read_u64_le(cursor: &mut Cursor<&[u8]>) -> u64 {
-    let mut buffer = [0; 8];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_u64_le_bytes(&buffer)
-}
 
 // f32
 fn read_f32_le_bytes(buffer: &[u8]) -> f32 {
     f32::from_le_bytes(buffer[..4].try_into().unwrap())
 }
 
-pub fn read_f32_le(cursor: &mut Cursor<&[u8]>) -> f32 {
-    let mut buffer = [0; 4];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_f32_le_bytes(&buffer)
-}
-
 
 // f64
 fn read_f64_le_bytes(buffer: &[u8]) -> f64 {
     f64::from_le_bytes(buffer[..8].try_into().unwrap())
-}
-
-pub fn read_f64_le(cursor: &mut Cursor<&[u8]>) -> f64 {
-    let mut buffer = [0; 8];
-    cursor.read_exact(&mut buffer).unwrap();
-    read_f64_le_bytes(&buffer)
 }
 
 
@@ -171,9 +199,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_i8_le(&mut cursor), a);
-        assert_eq!(read_i8_le(&mut cursor), b);
-        assert_eq!(read_i8_le(&mut cursor), c);
+        assert_eq!(cursor.read_i8_le(), a);
+        assert_eq!(cursor.read_i8_le(), b);
+        assert_eq!(cursor.read_i8_le(), c);
     }
 
     #[test]
@@ -190,9 +218,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_u8_le(&mut cursor), a);
-        assert_eq!(read_u8_le(&mut cursor), b);
-        assert_eq!(read_u8_le(&mut cursor), c);
+        assert_eq!(cursor.read_u8_le(), a);
+        assert_eq!(cursor.read_u8_le(), b);
+        assert_eq!(cursor.read_u8_le(), c);
     }
 
     #[test]
@@ -209,9 +237,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_i16_le(&mut cursor), a);
-        assert_eq!(read_i16_le(&mut cursor), b);
-        assert_eq!(read_i16_le(&mut cursor), c);
+        assert_eq!(cursor.read_i16_le(), a);
+        assert_eq!(cursor.read_i16_le(), b);
+        assert_eq!(cursor.read_i16_le(), c);
     }
 
     #[test]
@@ -228,9 +256,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_u16_le(&mut cursor), a);
-        assert_eq!(read_u16_le(&mut cursor), b);
-        assert_eq!(read_u16_le(&mut cursor), c);
+        assert_eq!(cursor.read_u16_le(), a);
+        assert_eq!(cursor.read_u16_le(), b);
+        assert_eq!(cursor.read_u16_le(), c);
     }
 
     #[test]
@@ -247,9 +275,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_i32_le(&mut cursor), a);
-        assert_eq!(read_i32_le(&mut cursor), b);
-        assert_eq!(read_i32_le(&mut cursor), c);
+        assert_eq!(cursor.read_i32_le(), a);
+        assert_eq!(cursor.read_i32_le(), b);
+        assert_eq!(cursor.read_i32_le(), c);
     }
 
     #[test]
@@ -266,9 +294,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_u32_le(&mut cursor), a);
-        assert_eq!(read_u32_le(&mut cursor), b);
-        assert_eq!(read_u32_le(&mut cursor), c);
+        assert_eq!(cursor.read_u32_le(), a);
+        assert_eq!(cursor.read_u32_le(), b);
+        assert_eq!(cursor.read_u32_le(), c);
     }
 
     #[test]
@@ -285,9 +313,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_u64_le(&mut cursor), a);
-        assert_eq!(read_u64_le(&mut cursor), b);
-        assert_eq!(read_u64_le(&mut cursor), c);
+        assert_eq!(cursor.read_u64_le(), a);
+        assert_eq!(cursor.read_u64_le(), b);
+        assert_eq!(cursor.read_u64_le(), c);
     }
 
     #[test]
@@ -304,9 +332,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_f32_le(&mut cursor), a);
-        assert_eq!(read_f32_le(&mut cursor), b);
-        assert_eq!(read_f32_le(&mut cursor), c);
+        assert_eq!(cursor.read_f32_le(), a);
+        assert_eq!(cursor.read_f32_le(), b);
+        assert_eq!(cursor.read_f32_le(), c);
     }
 
     #[test]
@@ -323,9 +351,9 @@ mod tests {
         buffer.append(&mut b.to_le_bytes().to_vec());
         buffer.append(&mut c.to_le_bytes().to_vec());
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_f64_le(&mut cursor), a);
-        assert_eq!(read_f64_le(&mut cursor), b);
-        assert_eq!(read_f64_le(&mut cursor), c);
+        assert_eq!(cursor.read_f64_le(), a);
+        assert_eq!(cursor.read_f64_le(), b);
+        assert_eq!(cursor.read_f64_le(), c);
     }
 
     #[test]
@@ -333,7 +361,7 @@ mod tests {
         let h = "MAGICXHEADER";
         let buffer = h.as_bytes().to_vec();
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_magic_header(&mut cursor), h);
+        assert_eq!(cursor.read_magic_header(), h);
     }
 
     #[test]
@@ -348,6 +376,6 @@ mod tests {
         let s = "Test string";
         let buffer = s.as_bytes().to_vec();
         let mut cursor = Cursor::new(buffer.as_slice());
-        assert_eq!(read_string(&mut cursor, 4), "Test");
+        assert_eq!(cursor.read_string(4), "Test");
     }
 }

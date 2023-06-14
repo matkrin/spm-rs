@@ -4,10 +4,7 @@ use std::{
     io::{Cursor, Read},
 };
 
-use crate::utils::{
-    read_f32_le, read_f64_le, read_i16_le, read_i32_le, read_i8_le, read_string, read_u16_le,
-    read_u32_le, read_u8_le,
-};
+use crate::utils::Bytereading;
 
 #[derive(Debug)]
 pub struct Ibw {
@@ -183,7 +180,7 @@ pub fn read_ibw(filename: &str) -> Result<Ibw> {
     let bytes = read(filename)?;
     let file_len = bytes.len();
     let mut cursor = Cursor::new(bytes.as_slice());
-    let version = read_i16_le(&mut cursor);
+    let version = cursor.read_i16_le();
     cursor.set_position(0);
 
     let bin_header = match version {
@@ -271,7 +268,7 @@ fn read_note(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> String {
     };
 
     if note_size != 0 {
-        read_string(cursor, note_size as usize).replace("\r", "\n")
+        cursor.read_string(note_size as usize).replace("\r", "\n")
     } else {
         "".to_string()
     }
@@ -282,7 +279,7 @@ fn read_extended_data_units(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) 
     match bin_header {
         BinHeader::V5(bh) => {
             if bh.data_e_units_size != 0 {
-                Some(read_string(cursor, bh.data_e_units_size as usize))
+                Some(cursor.read_string(bh.data_e_units_size as usize))
             } else {
                 None
             }
@@ -298,7 +295,7 @@ fn read_dim_e_units(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> Optio
                 .iter()
                 .map(|i| {
                     if *i != 0 {
-                        read_string(cursor, *i as usize)
+                        cursor.read_string(*i as usize)
                     } else {
                         "".to_string()
                     }
@@ -316,7 +313,7 @@ fn read_dim_labels(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> Option
                 .iter()
                 .map(|i| {
                     if *i != 0 {
-                        read_string(cursor, *i as usize)
+                        cursor.read_string(*i as usize)
                     } else {
                         "".to_string()
                     }
@@ -328,11 +325,11 @@ fn read_dim_labels(cursor: &mut Cursor<&[u8]>, bin_header: &BinHeader) -> Option
 }
 
 fn read_bin_header_2(cursor: &mut Cursor<&[u8]>) -> BinHeader {
-    let version = read_i16_le(cursor);
-    let wfm_size = read_i32_le(cursor);
-    let note_size = read_i32_le(cursor);
-    let pict_size = read_i32_le(cursor);
-    let checksum = read_i16_le(cursor);
+    let version = cursor.read_i16_le();
+    let wfm_size = cursor.read_i32_le();
+    let note_size = cursor.read_i32_le();
+    let pict_size = cursor.read_i32_le();
+    let checksum = cursor.read_i16_le();
 
     BinHeader::V2(BinHeader2 {
         version,
@@ -344,23 +341,23 @@ fn read_bin_header_2(cursor: &mut Cursor<&[u8]>) -> BinHeader {
 }
 
 fn read_wave_header_2(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
-    let type_ = read_i16_le(cursor);
-    let next = read_u32_le(cursor);
-    let bname = read_string(cursor, 20);
-    let wh_version = read_i16_le(cursor);
-    let src_fldr = read_i16_le(cursor);
-    let file_name = read_u32_le(cursor);
-    let data_units = read_string(cursor, 4);
-    let x_units = read_string(cursor, 4);
-    let npnts = read_i32_le(cursor);
-    let a_modified = read_i16_le(cursor);
-    let hs_a = read_f64_le(cursor);
-    let hs_b = read_f64_le(cursor);
-    let w_modified = read_i16_le(cursor);
-    let sw_modified = read_i16_le(cursor);
-    let fs_valid = read_i16_le(cursor);
-    let top_full_scale = read_f64_le(cursor);
-    let bot_full_scale = read_f64_le(cursor);
+    let type_ = cursor.read_i16_le();
+    let next = cursor.read_u32_le();
+    let bname = cursor.read_string(20);
+    let wh_version = cursor.read_i16_le();
+    let src_fldr = cursor.read_i16_le();
+    let file_name = cursor.read_u32_le();
+    let data_units = cursor.read_string(4);
+    let x_units = cursor.read_string(4);
+    let npnts = cursor.read_i32_le();
+    let a_modified = cursor.read_i16_le();
+    let hs_a = cursor.read_f64_le();
+    let hs_b = cursor.read_f64_le();
+    let w_modified = cursor.read_i16_le();
+    let sw_modified = cursor.read_i16_le();
+    let fs_valid = cursor.read_i16_le();
+    let top_full_scale = cursor.read_f64_le();
+    let bot_full_scale = cursor.read_f64_le();
 
     let mut use_bits = [0_u8; 1];
     cursor.read_exact(&mut use_bits).unwrap();
@@ -368,12 +365,12 @@ fn read_wave_header_2(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
     let mut kind_bits = [0_u8; 1];
     cursor.read_exact(&mut kind_bits).unwrap();
 
-    let formula = read_u32_le(cursor);
-    let dep_id = read_i32_le(cursor);
-    let creation_date = read_u32_le(cursor);
-    let w_unused = read_string(cursor, 2);
-    let mod_date = read_u32_le(cursor);
-    let wave_note_h = read_u32_le(cursor);
+    let formula = cursor.read_u32_le();
+    let dep_id = cursor.read_i32_le();
+    let creation_date = cursor.read_u32_le();
+    let w_unused = cursor.read_string(2);
+    let mod_date = cursor.read_u32_le();
+    let wave_note_h = cursor.read_u32_le();
 
     WaveHeader::V2(WaveHeader2 {
         type_,
@@ -405,26 +402,26 @@ fn read_wave_header_2(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
 }
 
 fn read_bin_header_5(cursor: &mut Cursor<&[u8]>) -> BinHeader {
-    let version = read_i16_le(cursor);
-    let checksum = read_i16_le(cursor);
-    let wfm_size = read_i32_le(cursor);
-    let formula_size = read_i32_le(cursor);
-    let note_size = read_i32_le(cursor);
-    let data_e_units_size = read_i32_le(cursor);
+    let version = cursor.read_i16_le();
+    let checksum = cursor.read_i16_le();
+    let wfm_size = cursor.read_i32_le();
+    let formula_size = cursor.read_i32_le();
+    let note_size = cursor.read_i32_le();
+    let data_e_units_size = cursor.read_i32_le();
 
     let mut dim_e_units_size = [0; 4];
     for i in dim_e_units_size.iter_mut() {
-        *i = read_i32_le(cursor);
+        *i = cursor.read_i32_le();
     }
 
     let mut dim_labels_size = [0; 4];
     for i in dim_labels_size.iter_mut() {
-        *i = read_i32_le(cursor);
+        *i = cursor.read_i32_le();
     }
 
-    let s_indices_size = read_i32_le(cursor);
-    let options_size_1 = read_i32_le(cursor);
-    let options_size_2 = read_i32_le(cursor);
+    let s_indices_size = cursor.read_i32_le();
+    let options_size_1 = cursor.read_i32_le();
+    let options_size_2 = cursor.read_i32_le();
 
     BinHeader::V5(BinHeader5 {
         version,
@@ -442,76 +439,76 @@ fn read_bin_header_5(cursor: &mut Cursor<&[u8]>) -> BinHeader {
 }
 
 fn read_wave_header_5(cursor: &mut Cursor<&[u8]>) -> WaveHeader {
-    let next = read_u32_le(cursor);
-    let creation_date = read_u32_le(cursor);
-    let mod_date = read_u32_le(cursor);
-    let npnts = read_i32_le(cursor);
-    let type_ = read_i16_le(cursor);
-    let d_lock = read_i16_le(cursor);
-    let whpad1 = read_string(cursor, 6);
-    let wh_version = read_i16_le(cursor);
-    let bname = read_string(cursor, 32);
-    let whpad2 = read_i32_le(cursor);
-    let data_folder = read_u32_le(cursor);
+    let next = cursor.read_u32_le();
+    let creation_date = cursor.read_u32_le();
+    let mod_date = cursor.read_u32_le();
+    let npnts = cursor.read_i32_le();
+    let type_ = cursor.read_i16_le();
+    let d_lock = cursor.read_i16_le();
+    let whpad1 = cursor.read_string(6);
+    let wh_version = cursor.read_i16_le();
+    let bname = cursor.read_string(32);
+    let whpad2 = cursor.read_i32_le();
+    let data_folder = cursor.read_u32_le();
 
     let mut n_dim = [0; 4];
     for i in n_dim.iter_mut() {
-        *i = read_i32_le(cursor);
+        *i = cursor.read_i32_le();
     }
 
     let mut sf_a = [0_f64; 4];
     for i in sf_a.iter_mut() {
-        *i = read_f64_le(cursor);
+        *i = cursor.read_f64_le();
     }
 
     let mut sf_b = [0_f64; 4];
     for i in sf_b.iter_mut() {
-        *i = read_f64_le(cursor);
+        *i = cursor.read_f64_le();
     }
 
-    let data_units = read_string(cursor, 4);
+    let data_units = cursor.read_string(4);
 
     let mut dim_units = [[0_u8; 4]; 4];
     for i in dim_units.iter_mut() {
         cursor.read_exact(i).unwrap();
     }
-    let fs_valid = read_i16_le(cursor);
-    let whpad3 = read_i16_le(cursor);
-    let top_full_scale = read_f64_le(cursor);
-    let bot_full_scale = read_f64_le(cursor);
-    let data_e_units = read_u32_le(cursor);
+    let fs_valid = cursor.read_i16_le();
+    let whpad3 = cursor.read_i16_le();
+    let top_full_scale = cursor.read_f64_le();
+    let bot_full_scale = cursor.read_f64_le();
+    let data_e_units = cursor.read_u32_le();
 
     let mut dim_e_units = [0_u32; 4];
     for i in dim_e_units.iter_mut() {
-        *i = read_u32_le(cursor);
+        *i = cursor.read_u32_le();
     }
 
     let mut dim_labels = [0_u32; 4];
     for i in dim_labels.iter_mut() {
-        *i = read_u32_le(cursor);
+        *i = cursor.read_u32_le();
     }
 
-    let wave_note_h = read_u32_le(cursor);
+    let wave_note_h = cursor.read_u32_le();
 
     let mut wh_unused = [0_i32; 16];
     for i in wh_unused.iter_mut() {
-        *i = read_i32_le(cursor);
+        *i = cursor.read_i32_le();
     }
-    let a_modified = read_i16_le(cursor);
-    let w_modified = read_i16_le(cursor);
-    let sw_modified = read_i16_le(cursor);
+    let a_modified = cursor.read_i16_le();
+    let w_modified = cursor.read_i16_le();
+    let sw_modified = cursor.read_i16_le();
 
     let mut use_bits = [0_u8; 1];
     cursor.read_exact(&mut use_bits).unwrap();
 
     let mut kind_bits = [0_u8; 1];
     cursor.read_exact(&mut kind_bits).unwrap();
-    let formula = read_u32_le(cursor);
-    let dep_id = read_i32_le(cursor);
-    let whpad4 = read_i16_le(cursor);
-    let src_fldr = read_i16_le(cursor);
-    let file_name = read_u32_le(cursor);
-    let s_indeces = read_i32_le(cursor);
+    let formula = cursor.read_u32_le();
+    let dep_id = cursor.read_i32_le();
+    let whpad4 = cursor.read_i16_le();
+    let src_fldr = cursor.read_i16_le();
+    let file_name = cursor.read_u32_le();
+    let s_indeces = cursor.read_i32_le();
 
     WaveHeader::V5(WaveHeader5 {
         next,
@@ -564,7 +561,7 @@ fn read_numeric_data(
         2 => {
             let mut v = Vec::with_capacity((num_data_points / 4) as usize);
             for _ in 0..num_data_points {
-                v.push(read_f32_le(cursor));
+                v.push(cursor.read_f32_le());
             }
             NumericData::Float32(v)
         }
@@ -572,7 +569,7 @@ fn read_numeric_data(
         4 => {
             let mut v = Vec::with_capacity((num_data_points / 8) as usize);
             for _ in 0..num_data_points {
-                v.push(read_f64_le(cursor));
+                v.push(cursor.read_f64_le());
             }
             NumericData::Float64(v)
         }
@@ -580,7 +577,7 @@ fn read_numeric_data(
         8 => {
             let mut v = Vec::with_capacity((num_data_points) as usize);
             for _ in 0..num_data_points {
-                v.push(read_i8_le(cursor));
+                v.push(cursor.read_i8_le());
             }
             NumericData::Int8(v)
         }
@@ -588,7 +585,7 @@ fn read_numeric_data(
         0x10 => {
             let mut v = Vec::with_capacity((num_data_points / 2) as usize);
             for _ in 0..num_data_points {
-                v.push(read_i16_le(cursor));
+                v.push(cursor.read_i16_le());
             }
             NumericData::Int16(v)
         }
@@ -597,7 +594,7 @@ fn read_numeric_data(
         0x20 => {
             let mut v = Vec::with_capacity((num_data_points / 4) as usize);
             for _ in 0..num_data_points {
-                v.push(read_i32_le(cursor));
+                v.push(cursor.read_i32_le());
             }
             NumericData::Int32(v)
         }
@@ -606,7 +603,7 @@ fn read_numeric_data(
         0x48 => {
             let mut v = Vec::with_capacity((num_data_points) as usize);
             for _ in 0..num_data_points {
-                v.push(read_u8_le(cursor));
+                v.push(cursor.read_u8_le());
             }
             NumericData::Uint8(v)
         }
@@ -615,7 +612,7 @@ fn read_numeric_data(
         0x50 => {
             let mut v = Vec::with_capacity((num_data_points / 2) as usize);
             for _ in 0..num_data_points {
-                v.push(read_u16_le(cursor));
+                v.push(cursor.read_u16_le());
             }
             NumericData::Uint16(v)
         }
@@ -624,7 +621,7 @@ fn read_numeric_data(
         0x60 => {
             let mut v = Vec::with_capacity((num_data_points / 4) as usize);
             for _ in 0..num_data_points {
-                v.push(read_u32_le(cursor));
+                v.push(cursor.read_u32_le());
             }
             NumericData::Uint32(v)
         }

@@ -6,7 +6,7 @@ use std::path::Path;
 use anyhow::Result;
 
 use crate::omicron_matrix::paramfile::{read_ident_block, IdentBlock, MatrixType};
-use crate::utils::read_magic_header;
+use crate::utils::Bytereading;
 
 #[derive(Debug)]
 pub struct ParamData {
@@ -44,7 +44,7 @@ pub fn get_param_info(filename: &str) -> Result<ParamData> {
     let paramfile = format!("{}_0001.mtrx", filename.split_once("--").unwrap().0);
     let bytes = read(paramfile).unwrap();
     let mut cursor = Cursor::new(bytes.as_slice());
-    let magic_header = read_magic_header(&mut cursor);
+    let magic_header = cursor.read_magic_header();
     assert_eq!(magic_header, "ONTMATRX0101");
 
     let file_length = bytes.len();

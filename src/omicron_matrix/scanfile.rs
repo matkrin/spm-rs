@@ -7,10 +7,7 @@ use std::str;
 use chrono::prelude::*;
 use chrono::Utc;
 
-use crate::utils::read_i32_le;
-use crate::utils::{
-    read_magic_header, read_matrix_string, read_matrix_type, read_u32_le, read_u64_le, skip,
-};
+use crate::utils::Bytereading;
 
 #[derive(Debug)]
 pub struct ScanData {
@@ -25,7 +22,7 @@ pub fn read_omicron_matrix_scanfile(filename: &str) -> ScanData {
     let file_length = bytes.len();
     let mut cursor = Cursor::new(bytes.as_slice());
 
-    let magic_header = read_magic_header(&mut cursor);
+    let magic_header = cursor.read_magic_header();
     assert_eq!(magic_header, "ONTMATRX0101");
 
 
@@ -59,18 +56,18 @@ pub fn read_omicron_matrix_scanfile(filename: &str) -> ScanData {
 // }
 
 fn read_bklt(cursor: &mut Cursor<&[u8]>) -> DateTime<Utc> {
-    let ident: String = read_matrix_type(cursor);
+    let ident: String = cursor.read_matrix_type();
     assert_eq!(ident, "BKLT");
-    let _len = read_u32_le(cursor);
+    let _len = cursor.read_u32_le();
     // println!("BKLT len: {}", _len);
 
     // Time when image finished
-    let time = read_u32_le(cursor);
+    let time = cursor.read_u32_le();
     // println!("BKLT time: {}", time);
-    let _unused = read_u32_le(cursor);
+    let _unused = cursor.read_u32_le();
     // println!("BKLT un: {}", _unused);
 
-    skip(cursor, 4);
+    cursor.skip(4);
 
     Utc.timestamp(time as i64, 0)
     // println!("Datetime: {}", t.with_timezone(&FixedOffset::east(1*3600)).to_string());
@@ -78,24 +75,24 @@ fn read_bklt(cursor: &mut Cursor<&[u8]>) -> DateTime<Utc> {
 }
 
 fn read_desc(cursor: &mut Cursor<&[u8]>) -> HashMap<String, u32> {
-    let ident: String = read_matrix_type(cursor);
+    let ident: String = cursor.read_matrix_type();
     assert_eq!(ident, "DESC");
-    let _channel_hash = read_u64_le(cursor);
-    skip(cursor, 16);
+    let _channel_hash = cursor.read_u64_le();
+    cursor.skip(16);
 
     let mut hm: HashMap<String, u32> = HashMap::new();
-    hm.insert("num_points_set".to_string(), read_u32_le(cursor));
-    hm.insert("num_points_scanned".to_string(), read_u32_le(cursor));
+    hm.insert("num_points_set".to_string(), cursor.read_u32_le());
+    hm.insert("num_points_scanned".to_string(), cursor.read_u32_le());
 
     // "SI32" don't know how this is useful
-    let _matrix_type = read_matrix_string(cursor);
+    let _matrix_type = cursor.read_matrix_string();
 
     // It seems also empty channels with no data listed here
-    hm.insert("num_img_channels".to_string(), read_u32_le(cursor));
+    hm.insert("num_img_channels".to_string(), cursor.read_u32_le());
 
-    skip(cursor, 8);
+    cursor.skip(8);
 
-    hm.insert("num_points_set_alt".to_string(), read_u32_le(cursor));
+    hm.insert("num_points_set_alt".to_string(), cursor.read_u32_le());
 
     hm
     // println!("DESC hm: {:#?}", hm);
@@ -105,9 +102,9 @@ fn read_desc(cursor: &mut Cursor<&[u8]>) -> HashMap<String, u32> {
 // TODO: num images
 fn read_data(cursor: &mut Cursor<&[u8]>) -> Vec<i32> {
 
-    let ident: String = read_matrix_type(cursor);
+    let ident: String = cursor.read_matrix_type();
     assert_eq!(ident, "DATA");
-    let len = read_u32_le(cursor);
+    let len = cursor.read_u32_le();
     // println!("DATA len: {}", len);
     let img_data_len = len / size_of::<u32>() as u32;
 
@@ -116,7 +113,7 @@ fn read_data(cursor: &mut Cursor<&[u8]>) -> Vec<i32> {
     // TODO: this is the data for all channels
     // DESC shows 4 image channels but the data points here are 2 x 160_000 (2 400x400 pixel images)
     for _ in 0..img_data_len {
-        img_data.push(read_i32_le(cursor));
+        img_data.push(cursor.read_i32_le());
     }
     img_data
     // return all data here, then with info from paramfile split it for use in seperate images
