@@ -3,6 +3,7 @@ use clap::Parser;
 use spm_rs::igor_ibw::read_ibw;
 use spm_rs::mulfile::read_mul;
 use spm_rs::omicron_matrix::read_omicron_matrix;
+use spm_rs::rhk_sm4::read_rhk_sm4;
 
 // use eframe::egui;
 // use egui_extras::RetainedImage;
@@ -37,7 +38,11 @@ fn main() -> Result<()> {
         dbg!(wave);
         // println!("{}", wave.data[0]);
         // println!("{:?}", wave.bname)
+    } else if args.filename.to_lowercase().ends_with(".sm4") {
+        let rhk_sm4 = read_rhk_sm4(&args.filename)?;
+        dbg!(rhk_sm4);
     }
+
     Ok(())
 }
 
