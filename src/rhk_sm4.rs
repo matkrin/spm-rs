@@ -3,6 +3,314 @@ use std::{fs::read, io::Cursor};
 
 use crate::utils::Bytereading;
 
+// #[derive(Debug)]
+// enum RhkDataType {
+//     RhkDataImage   ,
+//     RhkDataLine     ,
+//     RhkDataXyData    ,
+//     RhkDataAnnotatedLine ,
+//     RhkDataText          ,
+//     RhkDataAnnotatedText,
+//     RhkDataSequential  , /* Only in RHKPageIndex */
+//     RhkDataMove         ,   /* New in R9, cannot import it anyway. */
+// }
+
+// #[derive(Debug)]
+// enum RhkObjectType {
+//     RhkObject_Undefined            = 0,
+//     RhkObject_PageIndexHeader    = 1,
+//     RhkObject_PageIndexArray     = 2,
+//     RhkObject_PageHeader          = 3,
+//     RhkObject_PageData            = 4,
+//     RhkObject_ImageDriftHeader   = 5,
+//     RhkObject_ImageDrift          = 6,
+//     RhkObject_SpecDriftHeader    = 7,
+//     RhkObject_SpecDriftData      = 8,
+//     RhkObject_ColorInfo           = 9,
+//     RhkObject_StringData          = 10,
+//     RhkObject_TipTrackHeader     = 11,
+//     RhkObject_TipTrackData      = 12,
+//     RhkObject_Prm                  = 13,
+//     RhkObject_Thumbnail           = 14,
+//     RhkObject_PrmHeader          = 15,
+//     RhkObject_ThumbnailHeader    = 16,
+//     RhkObject_ApiInfo            = 17,
+//     RhkObject_HistoryInfo        = 18,
+//     RhkObject_PiezoSensitivity    = 19,
+//     RhkObject_FrequencySweepData = 20,
+//     RhkObject_ScanProcessorInfo  = 21,
+//     RhkObject_PllInfo             = 22,
+//     RhkObject_Ch1DriveInfo       = 23,
+//     RhkObject_Ch2DriveInfo       = 24,
+//     RhkObject_Lockin0Info         = 25,
+//     RhkObject_Lckin1Info         = 26,
+//     RhkObject_ZpiInfo             = 27,
+//     RhkObject_KpiInfo             = 28,
+//     RhkObject_AuxPiInfo          = 29,
+//     RhkObject_LowpassFilterR0Info = 30,
+//     RhkObject_LowpassFilterR1Info = 31,
+//     RhkObject_FileHeader          = -42,
+//     RhkObject_PageIndex           = -43,
+// }
+
+// #[derive(Debug)]
+// enum RhkSourceType {
+//     RHK_Source_Raw        = 0,
+//     RHK_Source_Processed  = 1,
+//     RHK_Source_Calculated = 2,
+//     RHK_Source_Imported   = 3,
+// }
+
+// #[derive(Debug)]
+// enum RhkImageType {
+//     RHK_IMAGE_Normal         = 0,
+//     RHK_IMAGE_Autocorrelated = 1,
+// }
+
+// #[derive(Debug)]
+// enum RhkPageType{
+//     RHK_Page_Undefined                   = 0,
+//     RHK_Page_Topographic                 = 1,
+//     RHK_Page_Current                     = 2,
+//     RHK_Page_Aux                         = 3,
+//     RHK_Page_Force                       = 4,
+//     RHK_Page_Signal                      = 5,
+//     RHK_Page_Fft                         = 6,
+//     RHK_Page_Noise_Power_Spectrum        = 7,
+//     RHK_Page_LineTest                   = 8,
+//     RHK_Page_Oscilloscope                = 9,
+//     RHK_Page_IV_Spectra                  = 10,
+//     RHK_Page_IV_4x4                      = 11,
+//     RHK_Page_IV_8x8                      = 12,
+//     RHK_Page_IV_16x16                    = 13,
+//     RHK_Page_IV_32x32                    = 14,
+//     RHK_Page_IV_Center                   = 15,
+//     RHK_Page_Interactive_Spectra         = 16,
+//     RHK_Page_Autocorreclation             = 17,
+//     RHK_Page_IZ_Spectra                  = 18,
+//     RHK_Page_4_Gain_Topography           = 19,
+//     RHK_Page_8_Gain_Topography           = 20,
+//     RHK_Page_4_Gain_Current              = 21,
+//     RHK_Page_8_Gain_Current              = 22,
+//     RHK_Page_IV_64x64                    = 23,
+//     RHK_Page_AutocorrelationN_Spectrum    = 24,
+//     RHK_Page_Counter                     = 25,
+//     RHK_Page_Multichannel_Analyser       = 26,
+//     RHK_Page_Afm_100                     = 27,
+//     RHK_Page_Cits                        = 28,
+//     RHK_Page_Gpib                        = 29,
+//     RHK_Page_Video_Channel               = 30,
+//     RHK_Page_Image_Out_Spectra           = 31,
+//     RHK_Page_I_Datalog                   = 32,
+//     RHK_Page_I_Ecset                     = 33,
+//     RHK_Page_I_Ecdata                    = 34,
+//     RHK_Page_I_Dsp_Ad                    = 35,
+//     RHK_Page_Discrete_Spectroscopy_Pp    = 36,
+//     RHK_Page_Image_Discrete_Spectroscopy = 37,
+//     RHK_Page_Ramp_Spectroscopy_Rp        = 38,
+//     RHK_Page_Discrete_Spectroscopy_Rp    = 39,
+// }
+
+// #[derive(Debug)]
+// enum RhkLineType{
+//     RHK_Line_NotALine                     = 0,
+//     RHK_Line_Histogram                      = 1,
+//     RHK_Line_CrossSection                  = 2,
+//     RHK_Line_LineTest                      = 3,
+//     RHK_Line_Oscilloscope                   = 4,
+//     RHK_Line_NoisePowerSpectrum           = 6,
+//     RHK_Line_IV_Spectrum                    = 7,
+//     RHK_Line_IZ_Spectrum                    = 8,
+//     RHK_Line_Image_X_Average                = 9,
+//     RHK_Line_Image_Y_Average                = 10,
+//     RHK_Line_Noise_Autocorrelation_Spectrum = 11,
+//     RHK_Line_Multichannel_Analyser_Data     = 12,
+//     RHK_Line_Renormalized_IV                = 13,
+//     RHK_Line_Image_Histogram_Spectra        = 14,
+//     RHK_Line_Image_Cross_Section            = 15,
+//     RHK_Line_Image_Average                  = 16,
+//     RHK_Line_Image_Cross_Section_G          = 17,
+//     RHK_Line_Image_Out_Spectra              = 18,
+//     RHK_Line_Datalog_Spectrum               = 19,
+//     RHK_Line_GXY                            = 20,
+//     RHK_Line_Electrochemistry               = 21,
+//     RHK_Line_Discrete_Spectroscopy          = 22,
+//     RHK_Line_Dscope_Datalogging             = 23,
+//     RHK_Line_Time_Spectroscopy              = 24,
+//     RHK_Line_Zoom_Fft                       = 25,
+//     RHK_Line_Frequency_Sweep                = 26,
+//     RHK_Line_Phase_Rotate                   = 27,
+//     RHK_Line_Fiber_Sweep                    = 28,
+// }
+
+// #[derive(Debug)]
+// enum RhkScanType {
+//     RHK_ScanRight = 0,
+//     RHK_ScanLeft  = 1,
+//     RHK_ScanUp    = 2,
+//     RHK_ScanDown  = 3
+// }
+
+// #[derive(Debug)]
+// enum  RhkStringType {
+//     RHK_String_Label,
+//     RHK_String_SystemText,
+//     RHK_String_SessionText,
+//     RHK_String_UserText,
+//     RHK_String_Path,
+//     RHK_String_Date,
+//     RHK_String_Time,
+//     RHK_String_X_Units,
+//     RHK_String_Y_Units,
+//     RHK_String_Z_Units,
+//     RHK_String_X_Lnits,
+//     RHK_String_Y_Lnits,
+//     RHK_String_Status_Channel_Text,
+//     RHK_String_Completed_Line_Count,
+//     RHK_String_Oversampling_Count,
+//     RHK_String_Sliced_Voltage,
+//     RHK_String_Pll_Pro_Status,
+//     RHK_String_NString
+// }
+
+// #[derive(Debug)]
+// enum RhkPiezoStringType {
+//     RHK_Piezo_Tube_X_Unit,
+//     RHK_Piezo_Tube_Y_Unit,
+//     RHK_Piezo_Tube_Z_Unit,
+//     RHK_Piezo_Tube_Z_Offet_Unit,
+//     RHK_Piezo_Scan_X_Unit,
+//     RHK_Piezo_Scan_Y_Unit,
+//     RHK_Piezo_Scan_Z_Unit,
+//     RHK_Piezo_Actuator_Unit,
+//     RHK_Piezo_Tube_Calibration,
+//     RHK_Piezo_Scan_Calibration,
+//     RHK_Piezo_Acutuator_Calibration,
+//     RHK_Piezo_NString
+// }
+
+// #[derive(Debug)]
+// enum  RhkDriftOptionType {
+//     RHK_Drift_Disabled = 0,
+//     RHK_Drift_Each_Spectra = 1,
+//     RHK_Drift_Each_Location = 2
+// }
+
+// #[derive(Debug)]
+// struct RhkSpecDriftHeader{
+//     start_time: u64,
+//      drift_opt: RhkDriftOptionType,
+//     nstrings: u32,
+//     strings: Vec<String>,
+// }
+
+// #[derive(Debug)]
+// struct RhkPiezoSensitivity {
+//     tube_x: f64,
+//     tube_y: f64,
+//     tube_z: f64,
+//     tube_z_offset: f64,
+//     scan_x: f64,
+//     scan_y: f64,
+//     scan_z: f64,
+//     actuator: f64,
+//     string_count: u32,
+//     strings: Vec<String>, //[RHK_PIEZO_NSTRINGS];
+// }
+
+// #[derive(Debug)]
+// struct RhkSpecInfo {
+//     ftime: f64,
+//     x_coord: f64,
+//     y_coord: f64,
+//     dx: f64,
+//     dy: f64,
+//     cumulative_dx: f64,
+//     cumulative_dy: f64,
+// }
+
+// #[derive(Debug)]
+// struct RhkObject {
+//     object_type: RhkObjectType,
+//     offset: u32,
+//     size: u32,
+// }
+
+// #[derive(Debug)]
+// struct RhkPageIndexHeader {
+//     page_count: u32,
+//     object_count: u32,
+//     // reserved_1: u32,
+//     // reserved_2: u32,
+//     objects: Vec<RhkObject>,
+// }
+
+// #[derive(Debug)]
+// struct RhkPage {
+//      field_size: u32,
+//      string_count: u32,
+//     page_type: RhkPageType,
+//      data_sub_source: u32,
+//     line_type: RhkLineType,
+//      x_coord: i32,
+//      y_coord: i32,
+//      x_size: u32,
+//      y_size: u32,
+//     image_type: RhkImageType,
+//     scan_dir: RhkScanType,
+//      group_id: u32,
+//      data_size: u32,
+//      min_z_value: u32,
+//      max_z_value: u32,
+//      x_scale: f64,
+//      y_scale: f64,
+//      z_scale: f64,
+//      xy_scale: f64,
+//      x_offset: f64,
+//      y_offset: f64,
+//      z_offset: f64,
+//      period: f64,
+//      bias: f64,
+//      current: f64,
+//      angle: f64,
+//      color_info_count: u32,
+//      grid_x_size: u32,
+//      grid_y_size: u32,
+//      object_count: u32,
+//      // reserved: u32,16],
+//     // const guchar *data,
+//     strings: Vec<String>,
+//     objects: Vec<RhkObject>,
+//     drift_header: RhkDriftHeader,
+//     spec_info: RhkSpecInfo,
+//     piezo_sensitivity: RhkPiezoSensitivity,
+// }
+
+// #[derive(Debug)]
+// struct RhkPageIndex {
+//     guchar id[GUID_SIZE];
+//     data_type :RhkDataType,
+//     source: RhkSourceType,
+//     object_count: u32,
+//     minor_version: u32,
+//     objects: Vec<RhkObject>,
+//     page: RhkPage,
+// }
+
+// #[derive(Debug)]
+// struct RhkFile {
+//     page_count: u32,
+//     object_count: u32,
+//     object_field_size: u32,
+//     reserved1: u32,
+//     reserved2: u32,
+//     objects: Vec<RhkObject>,
+//     page_index_header: RhkPageIndexHeader,
+//     page_indices: RhkPageIndex,
+// }
+
+///////////////////////////////
+
 #[derive(Debug)]
 struct Sm4Header {
     size: u16,
@@ -25,7 +333,8 @@ struct Sm4Object {
 struct PageIndexHeader {
     offset: u32,
     page_count: u32,
-    object_list_count: u32,
+    object_count: u32,
+    // objects: Sm4Object,
 }
 
 #[derive(Debug)]
@@ -95,7 +404,6 @@ struct Sm4PageHeaderDefault {
     object_list_count: u32,
     _32_bit_data_flag: u8,
     object_list: Vec<Sm4Object>,
-    tiptrack_info_count: u32,
 }
 
 pub fn read_rhk_sm4(filename: &str) -> Result<()> {
@@ -117,9 +425,8 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
     let page_index_header = get_page_index_header(&mut cursor, &header.object_list)?;
     // dbg!(&page_index_header);
 
-    let mut page_index_header_list =
-        Vec::with_capacity(page_index_header.object_list_count as usize);
-    for _ in 0..page_index_header.object_list_count {
+    let mut page_index_header_list = Vec::with_capacity(page_index_header.object_count as usize);
+    for _ in 0..page_index_header.object_count {
         page_index_header_list.push(read_sm4_object(&mut cursor))
     }
     // dbg!(&page_index_header_list);
@@ -138,9 +445,11 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
 
         pages.push(page);
     }
-    // dbg!(&pages);
+    // dbg!(&pages.len());
 
+    let mut page_objects = Vec::with_capacity(pages.len());
     for page in pages {
+        // dbg!(&page);
         let mut page_header = read_page_header(&mut cursor, &page)?;
         match page_header {
             Sm4PageHeader::Sequential(ref mut ph) => {
@@ -158,33 +467,47 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
             Sm4PageHeader::Default(ref mut ph) => ph.object_list.push(read_sm4_object(&mut cursor)),
         }
         // dbg!(&page_header);
+        let mut tiptrack_info_count = 0;
+        // let mut page_data = Vec::new();
+        let mut read_objects = Vec::with_capacity(page.object_list.len());
         for obj in &page.object_list {
             // dbg!(obj);
-            let mut tiptrack_info_count = 0;
             if obj.offset != 0 && obj.size != 0 {
-                match obj.id {
+                // dbg!(obj.id);
+                let read_obj = match obj.id {
+                    4 => {
+                        if let Sm4PageHeader::Default(ph) = &page_header {
+                            read_page_data(&mut cursor, obj.offset, obj.size, ph.z_scale, ph.z_offset)
+                        } else { ReadType::Unknown }
+                    },
                     5 => read_image_drift_header(&mut cursor, obj.offset),
                     6 => read_image_drift(&mut cursor, obj.offset),
                     7 => read_spec_drift_header(&mut cursor, obj.offset),
                     8 => {
-                        if let Sm4PageHeader::Default(ph) = page_header {
-                            read_spec_drift_data(&mut cursor, obj.offset, ph.y_size);
-                        };
+                        if let Sm4PageHeader::Default(ph) = &page_header {
+                            read_spec_drift_data(&mut cursor, obj.offset, ph.y_size)
+                        } else { ReadType::Unknown }
                     }
-                    9 => {}
+                    9 => { ReadType::Unknown },
                     10 => {
-                        if let Sm4PageHeader::Default(ph) = page_header {
-                            read_string_data(&mut cursor, obj.offset, ph.string_count);
-                        };
+                        if let Sm4PageHeader::Default(ph) = &page_header {
+                            read_string_data(&mut cursor, obj.offset, ph.string_count)
+                        } else {ReadType::Unknown}
                     }
                     11 => {
                         let tiptrack_header = read_tip_track_header(&mut cursor, obj.offset);
-                        tiptrack_info_count = tiptrack_header.tiptrack_tiptrack_info_count;
+                        if let ReadType::TipTrackHeader(tth) = &tiptrack_header {
+                            tiptrack_info_count = tth.tiptrack_tiptrack_info_count;
+                        }
+                        tiptrack_header
                     }
                     12 => read_tip_track_data(&mut cursor, obj.offset, tiptrack_info_count),
-                    13 => {}
-                    // stopped here
-                    15 => read_prm_header(&mut cursor, obj.offset),
+                    13 => { ReadType::Unknown },
+                    15 => {
+                        if let Sm4PageHeader::Default(ph) = &page_header {
+                            read_prm_header(&mut cursor, obj.offset, &ph.object_list)?
+                        } else {ReadType::Unknown}
+                    }
                     17 => read_api_info(&mut cursor, obj.offset),
                     18 => read_history_info(&mut cursor, obj.offset),
                     19 => read_piezo_sensitivity(&mut cursor, obj.offset),
@@ -202,14 +525,21 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
                     28 => read_pi_controller_info(&mut cursor, obj.offset),
                     29 => read_pi_controller_info(&mut cursor, obj.offset),
 
-                    29 => read_low_pass_filter_info(&mut cursor, obj.offset),
-                    30 => read_low_pass_filter_info(&mut cursor, obj.offset),
-                }
+                    30 => read_lowpass_filter_info(&mut cursor, obj.offset),
+                    31 => read_lowpass_filter_info(&mut cursor, obj.offset),
+                    _ => { ReadType::Unknown },
+                };
+                read_objects.push(read_obj);
             }
         }
+        page_objects.push(read_objects)
     }
 
     // dbg!(&cursor.position());
+    // dbg!(&_file_len);
+    // dbg!(read_objects);
+    // dbg!(&page_objects);
+    println!("{:?}", page_objects);
 
     Ok(())
 }
@@ -387,7 +717,7 @@ fn get_scan_type_name(scan_type: u32) -> String {
     scan_type_name.to_string()
 }
 
-fn get__drift_option_type_name(drift_option_type: u32) -> String {
+fn get_drift_option_type_name(drift_option_type: u32) -> String {
     let imagedrift_drift_option_type_name = match drift_option_type {
         0 => "RHK_DRIFT_DISABLED",
         1 => "RHK_DRIFT_EACH_SPECTRA",
@@ -410,7 +740,7 @@ fn get_page_index_header(
     Ok(PageIndexHeader {
         offset,
         page_count,
-        object_list_count,
+        object_count: object_list_count,
     })
 }
 
@@ -622,12 +952,48 @@ fn read_default_type(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Sm4PageHeade
     }
 }
 
+fn read_page_data(cursor: &mut Cursor<&[u8]>, offset: u32, size: u32, z_scale: f32, z_offset: f32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let len = size / 4;
+    let mut page_data = Vec::with_capacity(len as usize);
+    for _ in 0..len {
+        page_data.push(cursor.read_i32_le() as f64 * (z_scale as f64) + (z_offset as f64));
+    }
+    ReadType::PageData(page_data)
+}
+
+#[derive(Debug)]
+enum ReadType {
+    PageData(Vec<f64>),
+    ImageDriftHeader(ImageDriftHeader),
+    ImageDriftData(ImageDriftData),
+    SpecDriftHeader(SpecDriftHeader),
+    SpecDriftData(SpecDriftData),
+    StringData(StringData),
+    TipTrackHeader(TipTrackHeader),
+    TipTrackData(TipTrackData),
+    Prm(Prm),
+    ApiInfo(ApiInfo),
+    PiezoSensitivity(PiezoSensitivity),
+    FrequencySweepData(FrequencySweepData),
+    ScanprocessorInfo(ScanProcessorInfo),
+    PllInfo(PllInfo),
+    ChannelDriveInfo(ChannelDriveInfo),
+    LockinInfo(LockinInfo),
+    PiControllerInfo(PiControllerInfo),
+    LowpassFilterInfo(LowpassFilterInfo),
+    HistoryInfo,
+    Unknown,
+}
+
+#[derive(Debug)]
 struct ImageDriftHeader {
     imagedrift_filetime: u64,
     imagedrift_drift_option_type: u32,
     imagedrift_drift_option_type_name: String,
 }
 
+#[derive(Debug)]
 struct ImageDriftData {
     imagedrift_time: u32,
     imagedrift_dx: u32,
@@ -638,6 +1004,7 @@ struct ImageDriftData {
     imagedrift_vector_y: u32,
 }
 
+#[derive(Debug)]
 struct SpecDriftHeader {
     specdrift_filetime: u64,
     specdrift_drift_option_type: u32,
@@ -645,6 +1012,7 @@ struct SpecDriftHeader {
     specdrift_channel: String,
 }
 
+#[derive(Debug)]
 struct SpecDriftData {
     specdrift_time: Vec<f32>,
     specdrift_x_coord: Vec<f32>,
@@ -655,21 +1023,21 @@ struct SpecDriftData {
     specdrift_cumulative_y: Vec<f32>,
 }
 
-fn read_image_drift_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> ImageDriftHeader {
+fn read_image_drift_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
     cursor.set_position(offset as u64);
     // unix epoch
     let imagedrift_filetime = cursor.read_u64_le();
     let imagedrift_drift_option_type = cursor.read_u32_le();
     let imagedrift_drift_option_type_name =
-        get__drift_option_type_name(imagedrift_drift_option_type);
-    ImageDriftHeader {
+        get_drift_option_type_name(imagedrift_drift_option_type);
+    ReadType::ImageDriftHeader(ImageDriftHeader {
         imagedrift_filetime,
         imagedrift_drift_option_type,
         imagedrift_drift_option_type_name,
-    }
+    })
 }
 
-fn read_image_drift(cursor: &mut Cursor<&[u8]>, offset: u32) -> ImageDriftData {
+fn read_image_drift(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
     cursor.set_position(offset as u64);
     let imagedrift_time = cursor.read_u32_le();
     let imagedrift_dx = cursor.read_u32_le();
@@ -678,7 +1046,7 @@ fn read_image_drift(cursor: &mut Cursor<&[u8]>, offset: u32) -> ImageDriftData {
     let imagedrift_cumulative_y = cursor.read_u32_le();
     let imagedrift_vector_x = cursor.read_u32_le();
     let imagedrift_vector_y = cursor.read_u32_le();
-    ImageDriftData {
+    ReadType::ImageDriftData(ImageDriftData {
         imagedrift_time,
         imagedrift_dx,
         imagedrift_dy,
@@ -686,27 +1054,27 @@ fn read_image_drift(cursor: &mut Cursor<&[u8]>, offset: u32) -> ImageDriftData {
         imagedrift_cumulative_y,
         imagedrift_vector_x,
         imagedrift_vector_y,
-    }
+    })
 }
 
-fn read_spec_drift_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> SpecDriftHeader {
+fn read_spec_drift_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
     cursor.set_position(offset as u64);
     // unix epoch
     let specdrift_filetime = cursor.read_u64_le();
     let specdrift_drift_option_type = cursor.read_u32_le();
-    let specdrift_drift_option_type_name = get__drift_option_type_name(specdrift_drift_option_type);
+    let specdrift_drift_option_type_name = get_drift_option_type_name(specdrift_drift_option_type);
     _ = cursor.read_u32_le();
-    let specdrift_channel = read_sm4_string(&mut cursor);
+    let specdrift_channel = read_sm4_string(cursor);
 
-    SpecDriftHeader {
+    ReadType::SpecDriftHeader(SpecDriftHeader {
         specdrift_filetime,
         specdrift_drift_option_type,
         specdrift_drift_option_type_name,
         specdrift_channel,
-    }
+    })
 }
 
-fn read_spec_drift_data(cursor: &mut Cursor<&[u8]>, offset: u32, y_size: u32) -> SpecDriftData {
+fn read_spec_drift_data(cursor: &mut Cursor<&[u8]>, offset: u32, y_size: u32) -> ReadType {
     cursor.set_position(offset as u64);
     let mut specdrift_time = Vec::with_capacity(y_size as usize);
     let mut specdrift_x_coord = Vec::with_capacity(y_size as usize);
@@ -725,7 +1093,7 @@ fn read_spec_drift_data(cursor: &mut Cursor<&[u8]>, offset: u32, y_size: u32) ->
         specdrift_cumulative_x.push(cursor.read_f32_le());
         specdrift_cumulative_y.push(cursor.read_f32_le());
     }
-    SpecDriftData {
+    ReadType::SpecDriftData(SpecDriftData {
         specdrift_time,
         specdrift_x_coord,
         specdrift_y_coord,
@@ -733,9 +1101,10 @@ fn read_spec_drift_data(cursor: &mut Cursor<&[u8]>, offset: u32, y_size: u32) ->
         specdrift_dy,
         specdrift_cumulative_x,
         specdrift_cumulative_y,
-    }
+    })
 }
 
+#[derive(Debug)]
 struct StringData {
     label: String,
     system_text: String,
@@ -758,7 +1127,7 @@ struct StringData {
     channel_list: String,
 }
 
-fn read_string_data(cursor: &mut Cursor<&[u8]>, offset: u32, string_count: u16) -> StringData {
+fn read_string_data(cursor: &mut Cursor<&[u8]>, offset: u32, string_count: u16) -> ReadType {
     cursor.set_position(offset as u64);
     let label = read_sm4_string(cursor);
     let system_text = read_sm4_string(cursor);
@@ -779,7 +1148,7 @@ fn read_string_data(cursor: &mut Cursor<&[u8]>, offset: u32, string_count: u16) 
     let pll_pro_status = read_sm4_string(cursor);
     let setpoint_unit = read_sm4_string(cursor);
     let channel_list = read_sm4_string(cursor);
-    StringData {
+    ReadType::StringData(StringData {
         label,
         system_text,
         session_text,
@@ -799,9 +1168,10 @@ fn read_string_data(cursor: &mut Cursor<&[u8]>, offset: u32, string_count: u16) 
         pll_pro_status,
         setpoint_unit,
         channel_list,
-    }
+    })
 }
 
+#[derive(Debug)]
 struct TipTrackHeader {
     tiptrack_filetime: u64,
     tiptrack_feature_height: f32,
@@ -813,7 +1183,7 @@ struct TipTrackHeader {
     tiptrack_channel: String,
 }
 
-fn read_tip_track_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> TipTrackHeader {
+fn read_tip_track_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
     cursor.set_position(offset as u64);
     // epoch time
     let tiptrack_filetime = cursor.read_u64_le();
@@ -826,7 +1196,7 @@ fn read_tip_track_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> TipTrackHea
     _ = cursor.read_u32_le();
     let tiptrack_tiptrack_info_count = cursor.read_u32_le();
     let tiptrack_channel = read_sm4_string(cursor);
-    TipTrackHeader {
+    ReadType::TipTrackHeader(TipTrackHeader {
         tiptrack_filetime,
         tiptrack_feature_height,
         tiptrack_feature_width,
@@ -835,9 +1205,10 @@ fn read_tip_track_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> TipTrackHea
         tiptrack_phase_lag,
         tiptrack_tiptrack_info_count,
         tiptrack_channel,
-    }
+    })
 }
 
+#[derive(Debug)]
 struct TipTrackData {
     tiptrack_cumulative_time: Vec<f32>,
     tiptrack_time: Vec<f32>,
@@ -849,7 +1220,8 @@ fn read_tip_track_data(
     cursor: &mut Cursor<&[u8]>,
     offset: u32,
     tiptrack_info_count: u32,
-) -> TipTrackData {
+) -> ReadType {
+    cursor.set_position(offset as u64);
     let mut tiptrack_cumulative_time = Vec::with_capacity(tiptrack_info_count as usize);
     let mut tiptrack_time = Vec::with_capacity(tiptrack_info_count as usize);
     let mut tiptrack_dx = Vec::with_capacity(tiptrack_info_count as usize);
@@ -860,10 +1232,483 @@ fn read_tip_track_data(
         tiptrack_dx.push(cursor.read_f32_le());
         tiptrack_dy.push(cursor.read_f32_le());
     }
-    TipTrackData {
+    ReadType::TipTrackData(TipTrackData {
         tiptrack_cumulative_time,
         tiptrack_time,
         tiptrack_dx,
         tiptrack_dy,
+    })
+}
+
+#[derive(Debug)]
+struct Prm {
+    prm_compression_flag: u32,
+    prm_data_size: u32,
+    prm_compression_size: u32,
+    prm_data: Vec<u32>,
+}
+
+fn read_prm_header(
+    cursor: &mut Cursor<&[u8]>,
+    offset: u32,
+    object_list: &Vec<Sm4Object>,
+) -> Result<ReadType> {
+    cursor.set_position(offset as u64);
+    let prm_compression_flag = cursor.read_u32_le();
+    let prm_data_size = cursor.read_u32_le();
+    let prm_compression_size = cursor.read_u32_le();
+
+    let prm_data_offset = get_offset_object_prm(object_list)?;
+    let prm_data = read_prm_data(cursor, prm_data_offset, prm_data_size, prm_compression_flag)?;
+    Ok(ReadType::Prm(Prm {
+        prm_compression_flag,
+        prm_data_size,
+        prm_compression_size,
+        prm_data,
+    }))
+}
+
+fn get_offset_object_prm(object_list: &Vec<Sm4Object>) -> Result<u32> {
+    for obj in object_list {
+        if obj.name == "RHK_OBJECT_PRM" {
+            return Ok(obj.offset);
+        }
     }
+    Err(anyhow::anyhow!("No page index array"))
+}
+
+fn read_prm_data(
+    cursor: &mut Cursor<&[u8]>,
+    offset: u32,
+    prm_data_size: u32,
+    prm_compression_flag: u32,
+) -> Result<Vec<u32>> {
+    cursor.set_position(offset as u64);
+    let mut prm_data = Vec::with_capacity(prm_data_size as usize);
+    if prm_compression_flag == 0 {
+        for _ in 0..prm_data_size {
+            prm_data.push(cursor.read_u32_le())
+        }
+    } else {
+        return Err(anyhow::anyhow!("Compressed Data not supported"));
+    }
+    Ok(prm_data)
+}
+
+#[derive(Debug)]
+struct ApiInfo {
+    voltage_high: f32,
+    voltage_low: f32,
+    gain: f32,
+    api_offset: f32,
+    ramp_type: u32,
+    step: u32,
+    image_count: u32,
+    dac: u32,
+    mux: u32,
+    bias: u32,
+}
+
+fn read_api_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let voltage_high = cursor.read_f32_le();
+    let voltage_low = cursor.read_f32_le();
+    let gain = cursor.read_f32_le();
+    let api_offset = cursor.read_f32_le();
+
+    let ramp_mode = cursor.read_u32_le();
+    let ramp_type = cursor.read_u32_le();
+    let step = cursor.read_u32_le();
+    let image_count = cursor.read_u32_le();
+    let dac = cursor.read_u32_le();
+    let mux = cursor.read_u32_le();
+    let bias = cursor.read_u32_le();
+
+    _ = cursor.read_u32_le();
+    let units = read_sm4_string(cursor);
+
+    ReadType::ApiInfo(ApiInfo {
+        voltage_high,
+        voltage_low,
+        gain,
+        api_offset,
+        ramp_type,
+        step,
+        image_count,
+        dac,
+        mux,
+        bias,
+    })
+}
+
+fn read_history_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    _ = cursor.read_u32_le();
+    _ = read_sm4_string(cursor);
+    _ = read_sm4_string(cursor);
+    ReadType::HistoryInfo
+}
+
+#[derive(Debug)]
+struct PiezoSensitivity {
+    tube_x: f64,
+    tube_y: f64,
+    tube_z: f64,
+    tube_z_offset: f64,
+    scan_x: f64,
+    scan_y: f64,
+    scan_z: f64,
+    actuator: f64,
+    tube_z_unit: String,
+    tube_z_unit_offset: String,
+    scan_x_unit: String,
+    scan_y_unit: String,
+    scan_z_unit: String,
+    actuator_unit: String,
+    tube_calibration: String,
+    scan_calibration: String,
+    actuator_calibration: String,
+}
+
+fn read_piezo_sensitivity(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let tube_x = cursor.read_f64_le();
+    let tube_y = cursor.read_f64_le();
+    let tube_z = cursor.read_f64_le();
+    let tube_z_offset = cursor.read_f64_le();
+    let scan_x = cursor.read_f64_le();
+    let scan_y = cursor.read_f64_le();
+    let scan_z = cursor.read_f64_le();
+    let actuator = cursor.read_f64_le();
+
+    _ = cursor.read_u32_le();
+
+    let tube_x_unit = read_sm4_string(cursor);
+    let tube_y_unit = read_sm4_string(cursor);
+    let tube_z_unit = read_sm4_string(cursor);
+    let tube_z_unit_offset = read_sm4_string(cursor);
+    let scan_x_unit = read_sm4_string(cursor);
+    let scan_y_unit = read_sm4_string(cursor);
+    let scan_z_unit = read_sm4_string(cursor);
+    let actuator_unit = read_sm4_string(cursor);
+    let tube_calibration = read_sm4_string(cursor);
+    let scan_calibration = read_sm4_string(cursor);
+    let actuator_calibration = read_sm4_string(cursor);
+    ReadType::PiezoSensitivity(PiezoSensitivity {
+        tube_x,
+        tube_y,
+        tube_z,
+        tube_z_offset,
+        scan_x,
+        scan_y,
+        scan_z,
+        actuator,
+        tube_z_unit,
+        tube_z_unit_offset,
+        scan_x_unit,
+        scan_y_unit,
+        scan_z_unit,
+        actuator_unit,
+        tube_calibration,
+        scan_calibration,
+        actuator_calibration,
+    })
+}
+
+#[derive(Debug)]
+struct FrequencySweepData {
+    psd_total_signal: f64,
+    peak_frequency: f64,
+    peak_amplitude: f64,
+    drive_aplitude: f64,
+    signal_to_drive_ratio: f64,
+    q_factor: f64,
+    total_signal_unit: String,
+    peak_frequency_unit: String,
+    peak_amplitude_unit: String,
+    drive_amplitude_unit: String,
+    signal_to_drive_ratio_unit: String,
+    q_factor_unit: String,
+}
+
+fn read_frequency_sweep_data(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let psd_total_signal = cursor.read_f64_le();
+    let peak_frequency = cursor.read_f64_le();
+    let peak_amplitude = cursor.read_f64_le();
+    let drive_aplitude = cursor.read_f64_le();
+    let signal_to_drive_ratio = cursor.read_f64_le();
+    let q_factor = cursor.read_f64_le();
+    _ = cursor.read_u32_le();
+    let total_signal_unit = read_sm4_string(cursor);
+    let peak_frequency_unit = read_sm4_string(cursor);
+    let peak_amplitude_unit = read_sm4_string(cursor);
+    let drive_amplitude_unit = read_sm4_string(cursor);
+    let signal_to_drive_ratio_unit = read_sm4_string(cursor);
+    let q_factor_unit = read_sm4_string(cursor);
+    ReadType::FrequencySweepData(FrequencySweepData {
+        psd_total_signal,
+        peak_frequency,
+        peak_amplitude,
+        drive_aplitude,
+        signal_to_drive_ratio,
+        q_factor,
+        total_signal_unit,
+        peak_frequency_unit,
+        peak_amplitude_unit,
+        drive_amplitude_unit,
+        signal_to_drive_ratio_unit,
+        q_factor_unit,
+    })
+}
+
+#[derive(Debug)]
+struct ScanProcessorInfo {
+    x_slope_compensation: f64,
+    y_slope_compensation: f64,
+    x_slope_compensation_unit: String,
+    y_slope_compensation_unit: String,
+}
+
+fn read_scan_processor_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let x_slope_compensation = cursor.read_f64_le();
+    let y_slope_compensation = cursor.read_f64_le();
+    _ = cursor.read_u32_le();
+    let x_slope_compensation_unit = read_sm4_string(cursor);
+    let y_slope_compensation_unit = read_sm4_string(cursor);
+    ReadType::ScanprocessorInfo(ScanProcessorInfo {
+        x_slope_compensation,
+        y_slope_compensation,
+        x_slope_compensation_unit,
+        y_slope_compensation_unit,
+    })
+}
+
+#[derive(Debug)]
+struct PllInfo {
+    amplitude_control: u32,
+    drive_amplitude: f64,
+    drive_ref_frequency: f64,
+    lockin_freq_offset: f64,
+    lockin_harmonic_factor: f64,
+    lockin_phase_offset: f64,
+    pi_gain: f64,
+    pi_int_cutoff_frequency: f64,
+    pi_lower_bound: f64,
+    pi_upper_bound: f64,
+    diss_pi_gain: f64,
+    diss_pi_int_cutoff_frequency: f64,
+    diss_pi_lower_bound: f64,
+    diss_pi_upper_bound: f64,
+
+    lockin_filter_cutoff_frequency: String,
+
+    drive_amplitude_unit: String,
+    drive_ref_frequency_unit: String,
+    lockin_freq_offset_unit: String,
+    lockin_harmonic_factor_unit: String,
+    lockin_phase_offset_unit: String,
+    pi_gain_unit: String,
+    pi_int_cutoff_frequency_unit: String,
+    pi_lower_bound_unit: String,
+    pi_upper_bound_unit: String,
+    diss_pi_gain_unit: String,
+    diss_pi_int_cutoff_frequency_unit: String,
+    diss_pi_lower_bound_unit: String,
+    diss_pi_upper_bound_unit: String,
+}
+
+fn read_pll_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let amplitude_control = cursor.read_u32_le();
+    let drive_amplitude = cursor.read_f64_le();
+    let drive_ref_frequency = cursor.read_f64_le();
+    let lockin_freq_offset = cursor.read_f64_le();
+    let lockin_harmonic_factor = cursor.read_f64_le();
+    let lockin_phase_offset = cursor.read_f64_le();
+    let pi_gain = cursor.read_f64_le();
+    let pi_int_cutoff_frequency = cursor.read_f64_le();
+    let pi_lower_bound = cursor.read_f64_le();
+    let pi_upper_bound = cursor.read_f64_le();
+    let diss_pi_gain = cursor.read_f64_le();
+    let diss_pi_int_cutoff_frequency = cursor.read_f64_le();
+    let diss_pi_lower_bound = cursor.read_f64_le();
+    let diss_pi_upper_bound = cursor.read_f64_le();
+
+    let lockin_filter_cutoff_frequency = read_sm4_string(cursor);
+
+    let drive_amplitude_unit = read_sm4_string(cursor);
+    let drive_ref_frequency_unit = read_sm4_string(cursor);
+    let lockin_freq_offset_unit = read_sm4_string(cursor);
+    let lockin_harmonic_factor_unit = read_sm4_string(cursor);
+    let lockin_phase_offset_unit = read_sm4_string(cursor);
+    let pi_gain_unit = read_sm4_string(cursor);
+    let pi_int_cutoff_frequency_unit = read_sm4_string(cursor);
+    let pi_lower_bound_unit = read_sm4_string(cursor);
+    let pi_upper_bound_unit = read_sm4_string(cursor);
+    let diss_pi_gain_unit = read_sm4_string(cursor);
+    let diss_pi_int_cutoff_frequency_unit = read_sm4_string(cursor);
+    let diss_pi_lower_bound_unit = read_sm4_string(cursor);
+    let diss_pi_upper_bound_unit = read_sm4_string(cursor);
+    ReadType::PllInfo(PllInfo {
+        amplitude_control,
+        drive_amplitude,
+        drive_ref_frequency,
+        lockin_freq_offset,
+        lockin_harmonic_factor,
+        lockin_phase_offset,
+        pi_gain,
+        pi_int_cutoff_frequency,
+        pi_lower_bound,
+        pi_upper_bound,
+        diss_pi_gain,
+        diss_pi_int_cutoff_frequency,
+        diss_pi_lower_bound,
+        diss_pi_upper_bound,
+        lockin_filter_cutoff_frequency,
+        drive_amplitude_unit,
+        drive_ref_frequency_unit,
+        lockin_freq_offset_unit,
+        lockin_harmonic_factor_unit,
+        lockin_phase_offset_unit,
+        pi_gain_unit,
+        pi_int_cutoff_frequency_unit,
+        pi_lower_bound_unit,
+        pi_upper_bound_unit,
+        diss_pi_gain_unit,
+        diss_pi_int_cutoff_frequency_unit,
+        diss_pi_lower_bound_unit,
+        diss_pi_upper_bound_unit,
+    })
+}
+
+#[derive(Debug)]
+struct ChannelDriveInfo {
+    master_osciallator: u32,
+    amplitude: f64,
+    frequency: f64,
+    phase_offset: f64,
+    harmonic_factor: f64,
+    amplitude_unit: String,
+    frequency_unit: String,
+    phase_offset_unit: String,
+    harmonic_factor_unit: String,
+}
+
+fn read_channel_drive_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    _ = cursor.read_u32_le();
+    let master_osciallator = cursor.read_u32_le();
+
+    let amplitude = cursor.read_f64_le();
+    let frequency = cursor.read_f64_le();
+    let phase_offset = cursor.read_f64_le();
+    let harmonic_factor = cursor.read_f64_le();
+
+    let amplitude_unit = read_sm4_string(cursor);
+    let frequency_unit = read_sm4_string(cursor);
+    let phase_offset_unit = read_sm4_string(cursor);
+    let harmonic_factor_unit = read_sm4_string(cursor);
+    ReadType::ChannelDriveInfo(ChannelDriveInfo {
+        master_osciallator,
+        amplitude,
+        frequency,
+        phase_offset,
+        harmonic_factor,
+        amplitude_unit,
+        frequency_unit,
+        phase_offset_unit,
+        harmonic_factor_unit,
+    })
+}
+
+#[derive(Debug)]
+struct LockinInfo {
+    num_strings: u32,
+    non_master_oscillator: u32,
+    frequency: f64,
+    harmonic_factor: f64,
+    phase_offset: f64,
+    // these might be not included
+    filter_cutoff_frequency: String,
+    frequency_unit: String,
+    phase_unit: String,
+}
+
+fn read_lockin_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let num_strings = cursor.read_u32_le();
+
+    let non_master_oscillator = cursor.read_u32_le();
+    let frequency = cursor.read_f64_le();
+    let harmonic_factor = cursor.read_f64_le();
+    let phase_offset = cursor.read_f64_le();
+    // these might be not included
+    let filter_cutoff_frequency = read_sm4_string(cursor);
+    let frequency_unit = read_sm4_string(cursor);
+    let phase_unit = read_sm4_string(cursor);
+    ReadType::LockinInfo(LockinInfo {
+        num_strings,
+        non_master_oscillator,
+        frequency,
+        harmonic_factor,
+        phase_offset,
+        filter_cutoff_frequency,
+        frequency_unit,
+        phase_unit,
+    })
+}
+
+#[derive(Debug)]
+struct PiControllerInfo {
+    setpoint: f64,
+    proportional_gain: f64,
+    integral_gain: f64,
+    lower_bound: f64,
+    upper_bound: f64,
+    feedback_unit: String,
+    setpoint_unit: String,
+    proportional_gain_unit: String,
+    integral_gain_unit: String,
+    output_unit: String,
+}
+
+fn read_pi_controller_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    let setpoint = cursor.read_f64_le();
+    let proportional_gain = cursor.read_f64_le();
+    let integral_gain = cursor.read_f64_le();
+    let lower_bound = cursor.read_f64_le();
+    let upper_bound = cursor.read_f64_le();
+    _ = cursor.read_u32_le();
+    let feedback_unit = read_sm4_string(cursor);
+    let setpoint_unit = read_sm4_string(cursor);
+    let proportional_gain_unit = read_sm4_string(cursor);
+    let integral_gain_unit = read_sm4_string(cursor);
+    let output_unit = read_sm4_string(cursor);
+    ReadType::PiControllerInfo(PiControllerInfo {
+        setpoint,
+        proportional_gain,
+        integral_gain,
+        lower_bound,
+        upper_bound,
+        feedback_unit,
+        setpoint_unit,
+        proportional_gain_unit,
+        integral_gain_unit,
+        output_unit,
+    })
+}
+
+#[derive(Debug)]
+struct LowpassFilterInfo{
+    info: String,
+}
+
+fn read_lowpass_filter_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType {
+    cursor.set_position(offset as u64);
+    _ = cursor.read_u32_le();
+    let lowpass_filter_info = read_sm4_string(cursor);
+    ReadType::LowpassFilterInfo(LowpassFilterInfo { info: lowpass_filter_info })
 }
