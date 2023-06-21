@@ -3,198 +3,420 @@ use std::{fs::read, io::Cursor};
 
 use crate::utils::Bytereading;
 
-// #[derive(Debug)]
-// enum RhkDataType {
-//     RhkDataImage   ,
-//     RhkDataLine     ,
-//     RhkDataXyData    ,
-//     RhkDataAnnotatedLine ,
-//     RhkDataText          ,
-//     RhkDataAnnotatedText,
-//     RhkDataSequential  , /* Only in RHKPageIndex */
-//     RhkDataMove         ,   /* New in R9, cannot import it anyway. */
-// }
+#[derive(Debug)]
+enum RhkDataType {
+    DataImage,
+    DataLine,
+    DataXyData,
+    DataAnnotatedLine,
+    DataText,
+    DataAnnotatedText,
+    DataSequential, /* Only in RHKPageIndex */
+    DataMovie,      /* New in R9, cannot import it anyway. */
+    Unkwown,
+}
 
-// #[derive(Debug)]
-// enum RhkObjectType {
-//     RhkObject_Undefined            = 0,
-//     RhkObject_PageIndexHeader    = 1,
-//     RhkObject_PageIndexArray     = 2,
-//     RhkObject_PageHeader          = 3,
-//     RhkObject_PageData            = 4,
-//     RhkObject_ImageDriftHeader   = 5,
-//     RhkObject_ImageDrift          = 6,
-//     RhkObject_SpecDriftHeader    = 7,
-//     RhkObject_SpecDriftData      = 8,
-//     RhkObject_ColorInfo           = 9,
-//     RhkObject_StringData          = 10,
-//     RhkObject_TipTrackHeader     = 11,
-//     RhkObject_TipTrackData      = 12,
-//     RhkObject_Prm                  = 13,
-//     RhkObject_Thumbnail           = 14,
-//     RhkObject_PrmHeader          = 15,
-//     RhkObject_ThumbnailHeader    = 16,
-//     RhkObject_ApiInfo            = 17,
-//     RhkObject_HistoryInfo        = 18,
-//     RhkObject_PiezoSensitivity    = 19,
-//     RhkObject_FrequencySweepData = 20,
-//     RhkObject_ScanProcessorInfo  = 21,
-//     RhkObject_PllInfo             = 22,
-//     RhkObject_Ch1DriveInfo       = 23,
-//     RhkObject_Ch2DriveInfo       = 24,
-//     RhkObject_Lockin0Info         = 25,
-//     RhkObject_Lckin1Info         = 26,
-//     RhkObject_ZpiInfo             = 27,
-//     RhkObject_KpiInfo             = 28,
-//     RhkObject_AuxPiInfo          = 29,
-//     RhkObject_LowpassFilterR0Info = 30,
-//     RhkObject_LowpassFilterR1Info = 31,
-//     RhkObject_FileHeader          = -42,
-//     RhkObject_PageIndex           = -43,
-// }
+impl RhkDataType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            0 => Self::DataImage,
+            1 => Self::DataLine,
+            2 => Self::DataXyData,
+            3 => Self::DataAnnotatedLine,
+            4 => Self::DataText,
+            5 => Self::DataAnnotatedText,
+            6 => Self::DataSequential,
+            7 => Self::DataMovie,
+            _ => Self::Unkwown,
+        }
+    }
+}
 
-// #[derive(Debug)]
-// enum RhkSourceType {
-//     RHK_Source_Raw        = 0,
-//     RHK_Source_Processed  = 1,
-//     RHK_Source_Calculated = 2,
-//     RHK_Source_Imported   = 3,
-// }
+#[derive(Debug)]
+enum RhkObjectType {
+    Undefined,           //= 0,
+    PageIndexHeader,     //= 1,
+    PageIndexArray,      //= 2,
+    PageHeader,          //= 3,
+    PageData,            //= 4,
+    ImageDriftHeader,    //= 5,
+    ImageDrift,          //= 6,
+    SpecDriftHeader,     //= 7,
+    SpecDriftData,       //= 8,
+    ColorInfo,           //= 9,
+    StringData,          //= 10,
+    TipTrackHeader,      //= 11,
+    TipTrackData,        //= 12,
+    Prm,                 //= 13,
+    Thumbnail,           //= 14,
+    PrmHeader,           //= 15,
+    ThumbnailHeader,     //= 16,
+    ApiInfo,             //= 17,
+    HistoryInfo,         //= 18,
+    PiezoSensitivity,    //= 19,
+    FrequencySweepData,  //= 20,
+    ScanProcessorInfo,   //= 21,
+    PllInfo,             //= 22,
+    Ch1DriveInfo,        //= 23,
+    Ch2DriveInfo,        //= 24,
+    Lockin0Info,         //= 25,
+    Lockin1Info,         //= 26,
+    ZpiInfo,             //= 27,
+    KpiInfo,             //= 28,
+    AuxPiInfo,           //= 29,
+    LowpassFilterR0Info, //= 30,
+    LowpassFilterR1Info, //= 31,
+    FileHeader,          //= -42,
+    PageIndex,           //= -43,
+    Unkwown,
+}
 
-// #[derive(Debug)]
-// enum RhkImageType {
-//     RHK_IMAGE_Normal         = 0,
-//     RHK_IMAGE_Autocorrelated = 1,
-// }
+impl RhkObjectType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            0 => Self::Undefined,            //= 0,
+            1 => Self::PageIndexHeader,      //= 1,
+            2 => Self::PageIndexArray,       //= 2,
+            3 => Self::PageHeader,           //= 3,
+            4 => Self::PageData,             //= 4,
+            5 => Self::ImageDriftHeader,     //= 5,
+            6 => Self::ImageDrift,           //= 6,
+            7 => Self::SpecDriftHeader,      //= 7,
+            8 => Self::SpecDriftData,        //= 8,
+            9 => Self::ColorInfo,            //= 9,
+            10 => Self::StringData,          //= 10,
+            11 => Self::TipTrackHeader,      //= 11,
+            12 => Self::TipTrackData,        //= 12,
+            13 => Self::Prm,                 //= 13,
+            14 => Self::Thumbnail,           //= 14,
+            15 => Self::PrmHeader,           //= 15,
+            16 => Self::ThumbnailHeader,     //= 16,
+            17 => Self::ApiInfo,             //= 17,
+            18 => Self::HistoryInfo,         //= 18,
+            19 => Self::PiezoSensitivity,    //= 19,
+            20 => Self::FrequencySweepData,  //= 20,
+            21 => Self::ScanProcessorInfo,   //= 21,
+            22 => Self::PllInfo,             //= 22,
+            23 => Self::Ch1DriveInfo,        //= 23,
+            24 => Self::Ch2DriveInfo,        //= 24,
+            25 => Self::Lockin0Info,         //= 25,
+            26 => Self::Lockin1Info,         //= 26,
+            27 => Self::ZpiInfo,             //= 27,
+            28 => Self::KpiInfo,             //= 28,
+            29 => Self::AuxPiInfo,           //= 29,
+            30 => Self::LowpassFilterR0Info, //= 30,
+            31 => Self::LowpassFilterR1Info, //= 31,
+            // -42 => Self::FileHeader,          //= -42,
+            // -43 => Self::PageIndex,           //= -43,
+            _ => Self::Unkwown,
+        }
+    }
+}
 
-// #[derive(Debug)]
-// enum RhkPageType{
-//     RHK_Page_Undefined                   = 0,
-//     RHK_Page_Topographic                 = 1,
-//     RHK_Page_Current                     = 2,
-//     RHK_Page_Aux                         = 3,
-//     RHK_Page_Force                       = 4,
-//     RHK_Page_Signal                      = 5,
-//     RHK_Page_Fft                         = 6,
-//     RHK_Page_Noise_Power_Spectrum        = 7,
-//     RHK_Page_LineTest                   = 8,
-//     RHK_Page_Oscilloscope                = 9,
-//     RHK_Page_IV_Spectra                  = 10,
-//     RHK_Page_IV_4x4                      = 11,
-//     RHK_Page_IV_8x8                      = 12,
-//     RHK_Page_IV_16x16                    = 13,
-//     RHK_Page_IV_32x32                    = 14,
-//     RHK_Page_IV_Center                   = 15,
-//     RHK_Page_Interactive_Spectra         = 16,
-//     RHK_Page_Autocorreclation             = 17,
-//     RHK_Page_IZ_Spectra                  = 18,
-//     RHK_Page_4_Gain_Topography           = 19,
-//     RHK_Page_8_Gain_Topography           = 20,
-//     RHK_Page_4_Gain_Current              = 21,
-//     RHK_Page_8_Gain_Current              = 22,
-//     RHK_Page_IV_64x64                    = 23,
-//     RHK_Page_AutocorrelationN_Spectrum    = 24,
-//     RHK_Page_Counter                     = 25,
-//     RHK_Page_Multichannel_Analyser       = 26,
-//     RHK_Page_Afm_100                     = 27,
-//     RHK_Page_Cits                        = 28,
-//     RHK_Page_Gpib                        = 29,
-//     RHK_Page_Video_Channel               = 30,
-//     RHK_Page_Image_Out_Spectra           = 31,
-//     RHK_Page_I_Datalog                   = 32,
-//     RHK_Page_I_Ecset                     = 33,
-//     RHK_Page_I_Ecdata                    = 34,
-//     RHK_Page_I_Dsp_Ad                    = 35,
-//     RHK_Page_Discrete_Spectroscopy_Pp    = 36,
-//     RHK_Page_Image_Discrete_Spectroscopy = 37,
-//     RHK_Page_Ramp_Spectroscopy_Rp        = 38,
-//     RHK_Page_Discrete_Spectroscopy_Rp    = 39,
-// }
+#[derive(Debug)]
+enum RhkSourceType {
+    SourceRaw,        //= 0,
+    SourceProcessed,  //= 1,
+    SourceCalculated, //= 2,
+    SourceImported,   //= 3,
+    Unknown,
+}
 
-// #[derive(Debug)]
-// enum RhkLineType{
-//     RHK_Line_NotALine                     = 0,
-//     RHK_Line_Histogram                      = 1,
-//     RHK_Line_CrossSection                  = 2,
-//     RHK_Line_LineTest                      = 3,
-//     RHK_Line_Oscilloscope                   = 4,
-//     RHK_Line_NoisePowerSpectrum           = 6,
-//     RHK_Line_IV_Spectrum                    = 7,
-//     RHK_Line_IZ_Spectrum                    = 8,
-//     RHK_Line_Image_X_Average                = 9,
-//     RHK_Line_Image_Y_Average                = 10,
-//     RHK_Line_Noise_Autocorrelation_Spectrum = 11,
-//     RHK_Line_Multichannel_Analyser_Data     = 12,
-//     RHK_Line_Renormalized_IV                = 13,
-//     RHK_Line_Image_Histogram_Spectra        = 14,
-//     RHK_Line_Image_Cross_Section            = 15,
-//     RHK_Line_Image_Average                  = 16,
-//     RHK_Line_Image_Cross_Section_G          = 17,
-//     RHK_Line_Image_Out_Spectra              = 18,
-//     RHK_Line_Datalog_Spectrum               = 19,
-//     RHK_Line_GXY                            = 20,
-//     RHK_Line_Electrochemistry               = 21,
-//     RHK_Line_Discrete_Spectroscopy          = 22,
-//     RHK_Line_Dscope_Datalogging             = 23,
-//     RHK_Line_Time_Spectroscopy              = 24,
-//     RHK_Line_Zoom_Fft                       = 25,
-//     RHK_Line_Frequency_Sweep                = 26,
-//     RHK_Line_Phase_Rotate                   = 27,
-//     RHK_Line_Fiber_Sweep                    = 28,
-// }
+impl RhkSourceType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            1 => Self::SourceRaw,        //= 0,
+            2 => Self::SourceProcessed,  //= 1,
+            3 => Self::SourceCalculated, //= 2,
+            4 => Self::SourceImported,   //= 3,
+            _ => Self::Unknown,
+        }
+    }
+}
 
-// #[derive(Debug)]
-// enum RhkScanType {
-//     RHK_ScanRight = 0,
-//     RHK_ScanLeft  = 1,
-//     RHK_ScanUp    = 2,
-//     RHK_ScanDown  = 3
-// }
+#[derive(Debug)]
+enum RhkImageType {
+    Normal,         //= 0,
+    Autocorrelated, //= 1,
+    Unknown,
+}
 
-// #[derive(Debug)]
-// enum  RhkStringType {
-//     RHK_String_Label,
-//     RHK_String_SystemText,
-//     RHK_String_SessionText,
-//     RHK_String_UserText,
-//     RHK_String_Path,
-//     RHK_String_Date,
-//     RHK_String_Time,
-//     RHK_String_X_Units,
-//     RHK_String_Y_Units,
-//     RHK_String_Z_Units,
-//     RHK_String_X_Lnits,
-//     RHK_String_Y_Lnits,
-//     RHK_String_Status_Channel_Text,
-//     RHK_String_Completed_Line_Count,
-//     RHK_String_Oversampling_Count,
-//     RHK_String_Sliced_Voltage,
-//     RHK_String_Pll_Pro_Status,
-//     RHK_String_NString
-// }
+impl RhkImageType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            1 => Self::Normal,         //= 0,
+            2 => Self::Autocorrelated, //= 1,
+            _ => Self::Unknown,
+        }
+    }
+}
 
-// #[derive(Debug)]
-// enum RhkPiezoStringType {
-//     RHK_Piezo_Tube_X_Unit,
-//     RHK_Piezo_Tube_Y_Unit,
-//     RHK_Piezo_Tube_Z_Unit,
-//     RHK_Piezo_Tube_Z_Offet_Unit,
-//     RHK_Piezo_Scan_X_Unit,
-//     RHK_Piezo_Scan_Y_Unit,
-//     RHK_Piezo_Scan_Z_Unit,
-//     RHK_Piezo_Actuator_Unit,
-//     RHK_Piezo_Tube_Calibration,
-//     RHK_Piezo_Scan_Calibration,
-//     RHK_Piezo_Acutuator_Calibration,
-//     RHK_Piezo_NString
-// }
+#[derive(Debug)]
+enum RhkPageType {
+    Undefined,                 //= 0,
+    Topographic,               //= 1,
+    Current,                   //= 2,
+    Aux,                       //= 3,
+    Force,                     //= 4,
+    Signal,                    //= 5,
+    Fft,                       //= 6,
+    NoisePowerSpectrum,        //= 7,
+    LineTest,                  //= 8,
+    Oscilloscope,              //= 9,
+    IVSpectra,                 //= 10,
+    IV4x4,                     //= 11,
+    IV8x8,                     //= 12,
+    IV16x16,                   //= 13,
+    IV32x32,                   //= 14,
+    IVCenter,                  //= 15,
+    InteractiveSpectra,        //= 16,
+    Autocorreclation,          //= 17,
+    IZSpectra,                 //= 18,
+    Gain4Topography,           //= 19,
+    Gain8Topography,           //= 20,
+    Gain4Current,              //= 21,
+    Gain8Current,              //= 22,
+    IV64x64,                   //= 23,
+    AutocorrelationSpectrum,   //= 24,
+    Counter,                   //= 25,
+    MultichannelAnalyser,      //= 26,
+    Afm100,                    //= 27,
+    Cits,                      //= 28,
+    Gpib,                      //= 29,
+    VideoChannel,              //= 30,
+    ImageOutSpectra,           //= 31,
+    IDatalog,                  //= 32,
+    IEcset,                    //= 33,
+    IEcdata,                   //= 34,
+    IDspAd,                    //= 35,
+    DiscreteSpectroscopyPp,    //= 36,
+    ImageDiscreteSpectroscopy, //= 37,
+    RampSpectroscopyRp,        //= 38,
+    DiscreteSpectroscopyRp,    //= 39,
+    Unknown,
+}
 
-// #[derive(Debug)]
-// enum  RhkDriftOptionType {
-//     RHK_Drift_Disabled = 0,
-//     RHK_Drift_Each_Spectra = 1,
-//     RHK_Drift_Each_Location = 2
-// }
+impl RhkPageType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            1 => Self::Undefined,                  //= 0,
+            2 => Self::Topographic,                //= 1,
+            2 => Self::Current,                    //= 2,
+            3 => Self::Aux,                        //= 3,
+            4 => Self::Force,                      //= 4,
+            5 => Self::Signal,                     //= 5,
+            6 => Self::Fft,                        //= 6,
+            7 => Self::NoisePowerSpectrum,         //= 7,
+            8 => Self::LineTest,                   //= 8,
+            9 => Self::Oscilloscope,               //= 9,
+            10 => Self::IVSpectra,                 //= 10,
+            11 => Self::IV4x4,                     //= 11,
+            12 => Self::IV8x8,                     //= 12,
+            13 => Self::IV16x16,                   //= 13,
+            14 => Self::IV32x32,                   //= 14,
+            15 => Self::IVCenter,                  //= 15,
+            16 => Self::InteractiveSpectra,        //= 16,
+            17 => Self::Autocorreclation,          //= 17,
+            18 => Self::IZSpectra,                 //= 18,
+            19 => Self::Gain4Topography,           //= 19,
+            20 => Self::Gain8Topography,           //= 20,
+            21 => Self::Gain4Current,              //= 21,
+            22 => Self::Gain8Current,              //= 22,
+            23 => Self::IV64x64,                   //= 23,
+            24 => Self::AutocorrelationSpectrum,   //= 24,
+            25 => Self::Counter,                   //= 25,
+            26 => Self::MultichannelAnalyser,      //= 26,
+            27 => Self::Afm100,                    //= 27,
+            28 => Self::Cits,                      //= 28,
+            29 => Self::Gpib,                      //= 29,
+            30 => Self::VideoChannel,              //= 30,
+            31 => Self::ImageOutSpectra,           //= 31,
+            32 => Self::IDatalog,                  //= 32,
+            33 => Self::IEcset,                    //= 33,
+            34 => Self::IEcdata,                   //= 34,
+            35 => Self::IDspAd,                    //= 35,
+            36 => Self::DiscreteSpectroscopyPp,    //= 36,
+            37 => Self::ImageDiscreteSpectroscopy, //= 37,
+            38 => Self::RampSpectroscopyRp,        //= 38,
+            39 => Self::DiscreteSpectroscopyRp,    //= 39,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum RhkLineType {
+    NotALine,                     //= 0,
+    Histogram,                    //= 1,
+    CrossSection,                 //= 2,
+    LineTest,                     //= 3,
+    Oscilloscope,                 //= 4,
+    NoisePowerSpectrum,           //= 6,
+    IV_Spectrum,                  //= 7,
+    IZ_Spectrum,                  //= 8,
+    ImageXAverage,                //= 9,
+    ImageYAverage,                //= 10,
+    NoiseAutocorrelationSpectrum, //= 11,
+    MultichannelAnalyserData,     //= 12,
+    Renormalized_IV,              //= 13,
+    ImageHistogramSpectra,        //= 14,
+    ImageCrossSection,            //= 15,
+    ImageAverage,                 //= 16,
+    ImageCrossSectionG,           //= 17,
+    ImageOutSpectra,              //= 18,
+    DatalogSpectrum,              //= 19,
+    GXY,                          //= 20,
+    Electrochemistry,             //= 21,
+    DiscreteSpectroscopy,         //= 22,
+    DscopeDatalogging,            //= 23,
+    TimeSpectroscopy,             //= 24,
+    ZoomFft,                      //= 25,
+    FrequencySweep,               //= 26,
+    PhaseRotate,                  //= 27,
+    FiberSweep,                   //= 28,
+    Unknown,
+}
+
+impl RhkLineType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            1 => Self::NotALine,                      //= 0,
+            2 => Self::Histogram,                     //= 1,
+            3 => Self::CrossSection,                  //= 2,
+            4 => Self::LineTest,                      //= 3,
+            5 => Self::Oscilloscope,                  //= 4,
+            6 => Self::NoisePowerSpectrum,            //= 6,
+            7 => Self::IV_Spectrum,                   //= 7,
+            8 => Self::IZ_Spectrum,                   //= 8,
+            9 => Self::ImageXAverage,                 //= 9,
+            10 => Self::ImageYAverage,                //= 10,
+            11 => Self::NoiseAutocorrelationSpectrum, //= 11,
+            12 => Self::MultichannelAnalyserData,     //= 12,
+            13 => Self::Renormalized_IV,              //= 13,
+            14 => Self::ImageHistogramSpectra,        //= 14,
+            15 => Self::ImageCrossSection,            //= 15,
+            16 => Self::ImageAverage,                 //= 16,
+            17 => Self::ImageCrossSectionG,           //= 17,
+            18 => Self::ImageOutSpectra,              //= 18,
+            19 => Self::DatalogSpectrum,              //= 19,
+            20 => Self::GXY,                          //= 20,
+            21 => Self::Electrochemistry,             //= 21,
+            22 => Self::DiscreteSpectroscopy,         //= 22,
+            23 => Self::DscopeDatalogging,            //= 23,
+            24 => Self::TimeSpectroscopy,             //= 24,
+            25 => Self::ZoomFft,                      //= 25,
+            26 => Self::FrequencySweep,               //= 26,
+            27 => Self::PhaseRotate,                  //= 27,
+            28 => Self::FiberSweep,                   //= 28,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum RhkScanType {
+    ScanRight, //= 0,
+    ScanLeft,  //= 1,
+    ScanUp,    //= 2,
+    ScanDown,  //= 3,
+    Unknown,
+}
+
+impl RhkScanType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            1 => Self::ScanRight,
+            2 => Self::ScanLeft,
+            3 => Self::ScanUp,
+            4 => Self::ScanDown,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum RhkStringType {
+    Label,
+    SystemText,
+    SessionText,
+    UserText,
+    Path,
+    Date,
+    Time,
+    XUnits,
+    YUnits,
+    ZUnits,
+    XLnits,
+    YLnits,
+    StatusChannelText,
+    CompletedLineCount,
+    OversamplingCount,
+    SlicedVoltage,
+    PllProStatus,
+    NString,
+    Unknown,
+}
+
+impl RhkStringType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            1 => Self::Label,
+            2 => Self::SystemText,
+            3 => Self::SessionText,
+            4 => Self::UserText,
+            5 => Self::Path,
+            6 => Self::Date,
+            7 => Self::Time,
+            8 => Self::XUnits,
+            9 => Self::YUnits,
+            10 => Self::ZUnits,
+            11 => Self::XLnits,
+            12 => Self::YLnits,
+            13 => Self::StatusChannelText,
+            14 => Self::CompletedLineCount,
+            15 => Self::OversamplingCount,
+            16 => Self::SlicedVoltage,
+            17 => Self::PllProStatus,
+            18 => Self::NString,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum RhkPiezoStringType {
+    TubeXUnit,
+    TubeYUnit,
+    TubeZUnit,
+    TubeZOffet_Unit,
+    ScanXUnit,
+    ScanYUnit,
+    ScanZUnit,
+    ActuatorUnit,
+    TubeCalibration,
+    ScanCalibration,
+    AcutuatorCalibration,
+    NString,
+}
+
+#[derive(Debug)]
+enum RhkDriftOptionType {
+    Disabled,      //= 0,
+    Each_Spectra,  //= 1,
+    Each_Location, //= 2
+    Unknown,
+}
+
+impl RhkDriftOptionType {
+    fn from_num(num: u32) -> Self {
+        match num {
+            1 => Self::Disabled,      //= 0,
+            2 => Self::Each_Spectra,  //= 1,
+            3 => Self::Each_Location, //= 2
+            _ => Self::Unknown,
+        }
+    }
+}
 
 // #[derive(Debug)]
 // struct RhkSpecDriftHeader{
@@ -323,8 +545,7 @@ struct Sm4Header {
 
 #[derive(Debug)]
 struct Sm4Object {
-    id: u32,
-    name: String,
+    obj_type: RhkObjectType,
     offset: u32,
     size: u32,
 }
@@ -340,10 +561,8 @@ struct PageIndexHeader {
 #[derive(Debug)]
 struct Sm4Page {
     page_id: u16,
-    page_data_type: u32,
-    page_data_type_name: String,
-    page_source_type: u32,
-    page_source_type_name: String,
+    page_data_type: RhkDataType,
+    page_source_type: RhkSourceType,
     object_list_count: u32,
     minor_version: u32,
     object_list: Vec<Sm4Object>,
@@ -369,34 +588,37 @@ struct Sm4PageHeaderSequential {
 #[derive(Debug)]
 struct Sm4PageHeaderDefault {
     string_count: u16,
-    page_type: u32,
-    page_type_name: String,
+    page_type: RhkPageType,
+    // Channel: e.g. Topograhic, Current,...
     data_sub_source: u32,
-    line_type: u32,
-    line_type_name: String,
+    line_type: RhkLineType,
     x_corner: u32,
     y_corner: u32,
     // xres
     x_size: u32,
+    // yres
     y_size: u32,
-    image_type: u32,
-    image_type_name: String,
-    scan_type: u32,
-    scan_type_name: String,
+    image_type: RhkImageType,
+    scan_type: RhkScanType,
     group_id: u32,
     page_data_size: u32,
     min_z_value: u32,
     max_z_value: u32,
+    // x_scale * x_size gives physical dimensions
     x_scale: f32,
     y_scale: f32,
     z_scale: f32,
     xy_scale: f32,
+    // offsets
     x_offset: f32,
     y_offset: f32,
     z_offset: f32,
     period: f32,
+    // bias
     bias: f32,
+    // current
     current: f32,
+    // rotation
     angle: f32,
     color_info_count: u32,
     grid_x_size: u32,
@@ -412,24 +634,17 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
     let mut cursor = Cursor::new(bytes.as_slice());
 
     let mut header = read_header(&mut cursor);
-    // dbg!(&header);
-    // cursor.set_position(size as u64);
-    // dbg!(&cursor.position());
-
-    // let mut header_object_list = Vec::with_capacity(header.object_list_count as usize);
+    
     for _ in 0..header.object_list_count {
         header.object_list.push(read_sm4_object(&mut cursor))
     }
-    // dbg!(&header_object_list);
 
     let page_index_header = get_page_index_header(&mut cursor, &header.object_list)?;
-    // dbg!(&page_index_header);
 
     let mut page_index_header_list = Vec::with_capacity(page_index_header.object_count as usize);
     for _ in 0..page_index_header.object_count {
         page_index_header_list.push(read_sm4_object(&mut cursor))
     }
-    // dbg!(&page_index_header_list);
 
     let page_index_array_offset = get_offset_page_index_array(&page_index_header_list)?;
     cursor.set_position(page_index_array_offset as u64);
@@ -437,7 +652,6 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
     let mut pages = Vec::with_capacity(page_index_header.page_count as usize);
     for _ in 0..page_index_header.page_count {
         let mut page = read_sm4_page(&mut cursor);
-        // dbg!(&page);
 
         for _ in 0..page.object_list_count {
             page.object_list.push(read_sm4_object(&mut cursor));
@@ -445,11 +659,9 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
 
         pages.push(page);
     }
-    // dbg!(&pages.len());
 
     let mut page_objects = Vec::with_capacity(pages.len());
     for page in pages {
-        // dbg!(&page);
         let mut page_header = read_page_header(&mut cursor, &page)?;
         match page_header {
             Sm4PageHeader::Sequential(ref mut ph) => {
@@ -466,82 +678,95 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
             }
             Sm4PageHeader::Default(ref mut ph) => ph.object_list.push(read_sm4_object(&mut cursor)),
         }
-        // dbg!(&page_header);
         let mut tiptrack_info_count = 0;
-        // let mut page_data = Vec::new();
         let mut read_objects = Vec::with_capacity(page.object_list.len());
         for obj in &page.object_list {
-            // dbg!(obj);
             if obj.offset != 0 && obj.size != 0 {
-                // dbg!(obj.id);
-                let read_obj = match obj.id {
-                    4 => {
-                        if let Sm4PageHeader::Default(ph) = &page_header {
-                            read_page_data(&mut cursor, obj.offset, obj.size, ph.z_scale, ph.z_offset)
-                        } else { ReadType::Unknown }
-                    },
-                    5 => read_image_drift_header(&mut cursor, obj.offset),
-                    6 => read_image_drift(&mut cursor, obj.offset),
-                    7 => read_spec_drift_header(&mut cursor, obj.offset),
-                    8 => {
-                        if let Sm4PageHeader::Default(ph) = &page_header {
-                            read_spec_drift_data(&mut cursor, obj.offset, ph.y_size)
-                        } else { ReadType::Unknown }
-                    }
-                    9 => { ReadType::Unknown },
-                    10 => {
-                        if let Sm4PageHeader::Default(ph) = &page_header {
-                            read_string_data(&mut cursor, obj.offset, ph.string_count)
-                        } else {ReadType::Unknown}
-                    }
-                    11 => {
-                        let tiptrack_header = read_tip_track_header(&mut cursor, obj.offset);
-                        if let ReadType::TipTrackHeader(tth) = &tiptrack_header {
-                            tiptrack_info_count = tth.tiptrack_tiptrack_info_count;
-                        }
-                        tiptrack_header
-                    }
-                    12 => read_tip_track_data(&mut cursor, obj.offset, tiptrack_info_count),
-                    13 => { ReadType::Unknown },
-                    15 => {
-                        if let Sm4PageHeader::Default(ph) = &page_header {
-                            read_prm_header(&mut cursor, obj.offset, &ph.object_list)?
-                        } else {ReadType::Unknown}
-                    }
-                    17 => read_api_info(&mut cursor, obj.offset),
-                    18 => read_history_info(&mut cursor, obj.offset),
-                    19 => read_piezo_sensitivity(&mut cursor, obj.offset),
-                    20 => read_frequency_sweep_data(&mut cursor, obj.offset),
-                    21 => read_scan_processor_info(&mut cursor, obj.offset),
-                    22 => read_pll_info(&mut cursor, obj.offset),
-
-                    23 => read_channel_drive_info(&mut cursor, obj.offset),
-                    24 => read_channel_drive_info(&mut cursor, obj.offset),
-
-                    25 => read_lockin_info(&mut cursor, obj.offset),
-                    26 => read_lockin_info(&mut cursor, obj.offset),
-
-                    27 => read_pi_controller_info(&mut cursor, obj.offset),
-                    28 => read_pi_controller_info(&mut cursor, obj.offset),
-                    29 => read_pi_controller_info(&mut cursor, obj.offset),
-
-                    30 => read_lowpass_filter_info(&mut cursor, obj.offset),
-                    31 => read_lowpass_filter_info(&mut cursor, obj.offset),
-                    _ => { ReadType::Unknown },
-                };
+                let read_obj =
+                    read_object_content(obj, &page_header, &mut cursor, &mut tiptrack_info_count)?;
                 read_objects.push(read_obj);
             }
         }
         page_objects.push(read_objects)
     }
 
-    // dbg!(&cursor.position());
-    // dbg!(&_file_len);
-    // dbg!(read_objects);
-    // dbg!(&page_objects);
-    println!("{:?}", page_objects);
 
     Ok(())
+}
+
+fn read_object_content(
+    obj: &Sm4Object,
+    page_header: &Sm4PageHeader,
+    cursor: &mut Cursor<&[u8]>,
+    tiptrack_info_count: &mut u32,
+) -> Result<ReadType> {
+    let read_obj = match obj.obj_type {
+        RhkObjectType::PageData => {
+            if let Sm4PageHeader::Default(ph) = page_header {
+                dbg!(&ph.x_offset);
+                read_page_data(cursor, obj.offset, obj.size, ph.z_scale, ph.z_offset)
+            } else {
+                ReadType::Unknown
+            }
+        }
+        RhkObjectType::ImageDriftHeader => read_image_drift_header(cursor, obj.offset),
+        RhkObjectType::ImageDrift => read_image_drift(cursor, obj.offset),
+        RhkObjectType::SpecDriftHeader => read_spec_drift_header(cursor, obj.offset),
+        RhkObjectType::SpecDriftData => {
+            if let Sm4PageHeader::Default(ph) = page_header {
+                read_spec_drift_data(cursor, obj.offset, ph.y_size)
+            } else {
+                ReadType::Unknown
+            }
+        }
+        RhkObjectType::ColorInfo => ReadType::Unknown,
+        RhkObjectType::StringData => {
+            if let Sm4PageHeader::Default(ph) = page_header {
+                read_string_data(cursor, obj.offset, ph.string_count)
+            } else {
+                ReadType::Unknown
+            }
+        }
+        RhkObjectType::TipTrackHeader => {
+            let tiptrack_header = read_tip_track_header(cursor, obj.offset);
+            if let ReadType::TipTrackHeader(tth) = &tiptrack_header {
+                *tiptrack_info_count = tth.tiptrack_tiptrack_info_count;
+            }
+            tiptrack_header
+        }
+        RhkObjectType::TipTrackData => {
+            read_tip_track_data(cursor, obj.offset, *tiptrack_info_count)
+        }
+        RhkObjectType::Prm => ReadType::Unknown,
+        RhkObjectType::PrmHeader => {
+            if let Sm4PageHeader::Default(ph) = page_header {
+                read_prm_header(cursor, obj.offset, &ph.object_list)?
+            } else {
+                ReadType::Unknown
+            }
+        }
+        RhkObjectType::ApiInfo => read_api_info(cursor, obj.offset),
+        RhkObjectType::HistoryInfo => read_history_info(cursor, obj.offset),
+        RhkObjectType::PiezoSensitivity => read_piezo_sensitivity(cursor, obj.offset),
+        RhkObjectType::FrequencySweepData => read_frequency_sweep_data(cursor, obj.offset),
+        RhkObjectType::ScanProcessorInfo => read_scan_processor_info(cursor, obj.offset),
+        RhkObjectType::PllInfo => read_pll_info(cursor, obj.offset),
+
+        RhkObjectType::Ch1DriveInfo => read_channel_drive_info(cursor, obj.offset),
+        RhkObjectType::Ch2DriveInfo => read_channel_drive_info(cursor, obj.offset),
+
+        RhkObjectType::Lockin0Info => read_lockin_info(cursor, obj.offset),
+        RhkObjectType::Lockin1Info => read_lockin_info(cursor, obj.offset),
+
+        RhkObjectType::ZpiInfo => read_pi_controller_info(cursor, obj.offset),
+        RhkObjectType::KpiInfo => read_pi_controller_info(cursor, obj.offset),
+        RhkObjectType::AuxPiInfo => read_pi_controller_info(cursor, obj.offset),
+
+        RhkObjectType::LowpassFilterR0Info => read_lowpass_filter_info(cursor, obj.offset),
+        RhkObjectType::LowpassFilterR1Info => read_lowpass_filter_info(cursor, obj.offset),
+        _ => ReadType::Unknown,
+    };
+    Ok(read_obj)
 }
 
 fn read_sm4_string(cursor: &mut Cursor<&[u8]>) -> String {
@@ -746,7 +971,7 @@ fn get_page_index_header(
 
 fn get_offset_page_index_header(object_list: &Vec<Sm4Object>) -> Result<u32> {
     for obj in object_list {
-        if obj.name == "RHK_OBJECT_PAGE_INDEX_HEADER" {
+        if let RhkObjectType::PageIndexHeader = obj.obj_type {
             return Ok(obj.offset);
         }
     }
@@ -755,7 +980,7 @@ fn get_offset_page_index_header(object_list: &Vec<Sm4Object>) -> Result<u32> {
 
 fn get_offset_page_index_array(object_list: &Vec<Sm4Object>) -> Result<u32> {
     for obj in object_list {
-        if obj.name == "RHK_OBJECT_PAGE_INDEX_ARRAY" {
+        if let RhkObjectType::PageIndexArray = obj.obj_type {
             return Ok(obj.offset);
         }
     }
@@ -783,28 +1008,23 @@ fn read_header(cursor: &mut Cursor<&[u8]>) -> Sm4Header {
 }
 
 fn read_sm4_object(cursor: &mut Cursor<&[u8]>) -> Sm4Object {
-    let object_type_id = cursor.read_u32_le();
-    let name = get_object_type_name(object_type_id);
+    let object_type_id = RhkObjectType::from_num(cursor.read_u32_le());
     let offset = cursor.read_u32_le();
     let size = cursor.read_u32_le();
 
     Sm4Object {
-        id: object_type_id,
-        name,
+        obj_type: object_type_id,
         offset,
         size,
     }
 }
 
 fn read_sm4_page(cursor: &mut Cursor<&[u8]>) -> Sm4Page {
-    // dbg!(&cursor.position());
     let page_id = cursor.read_u16_le();
     cursor.skip(14);
-    let page_data_type = cursor.read_u32_le();
-    let page_data_type_name = get_page_data_type_name(page_data_type);
+    let page_data_type = RhkDataType::from_num(cursor.read_u32_le());
 
-    let page_source_type = cursor.read_u32_le();
-    let page_source_type_name = get_page_source_type_name(page_source_type);
+    let page_source_type = RhkSourceType::from_num(cursor.read_u32_le());
 
     let object_list_count = cursor.read_u32_le();
 
@@ -813,9 +1033,7 @@ fn read_sm4_page(cursor: &mut Cursor<&[u8]>) -> Sm4Page {
     Sm4Page {
         page_id,
         page_data_type,
-        page_data_type_name,
         page_source_type,
-        page_source_type_name,
         minor_version,
         object_list_count,
         object_list: Vec::with_capacity(object_list_count as usize),
@@ -826,7 +1044,7 @@ fn read_page_header(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Result<Sm4Pag
     let offset = get_offset_object_page_header(&page.object_list)?;
     cursor.set_position(offset as u64);
     // Sequential data type
-    if page.page_data_type == 6 {
+    if let RhkDataType::DataSequential = page.page_data_type {
         return Ok(Sm4PageHeader::Sequential(read_sequential_type(
             cursor, page,
         )));
@@ -836,7 +1054,7 @@ fn read_page_header(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Result<Sm4Pag
 
 fn get_offset_object_page_header(object_list: &Vec<Sm4Object>) -> Result<u32> {
     for obj in object_list {
-        if obj.name == "RHK_OBJECT_PAGE_HEADER" {
+        if let RhkObjectType::PageHeader = obj.obj_type {
             return Ok(obj.offset);
         }
     }
@@ -866,12 +1084,10 @@ fn read_sequential_type(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Sm4PageHe
 fn read_default_type(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Sm4PageHeaderDefault {
     _ = cursor.read_u16_le();
     let string_count = cursor.read_u16_le();
-    let page_type = cursor.read_u32_le();
-    let page_type_name = get_page_type_name(page_type);
+    let page_type = RhkPageType::from_num(cursor.read_u32_le());
     let data_sub_source = cursor.read_u32_le();
 
-    let line_type = cursor.read_u32_le();
-    let line_type_name = get_line_type_name(line_type);
+    let line_type = RhkLineType::from_num(cursor.read_u32_le());
 
     let x_corner = cursor.read_u32_le();
     let y_corner = cursor.read_u32_le();
@@ -879,11 +1095,9 @@ fn read_default_type(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Sm4PageHeade
     let x_size = cursor.read_u32_le();
     let y_size = cursor.read_u32_le();
 
-    let image_type = cursor.read_u32_le();
-    let image_type_name = get_image_type_name(image_type);
+    let image_type = RhkImageType::from_num(cursor.read_u32_le());
 
-    let scan_type = cursor.read_u32_le();
-    let scan_type_name = get_scan_type_name(scan_type);
+    let scan_type = RhkScanType::from_num(cursor.read_u32_le());
 
     let group_id = cursor.read_u32_le();
     let page_data_size = cursor.read_u32_le();
@@ -916,18 +1130,14 @@ fn read_default_type(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Sm4PageHeade
     Sm4PageHeaderDefault {
         string_count,
         page_type,
-        page_type_name,
         data_sub_source,
         line_type,
-        line_type_name,
         x_corner,
         y_corner,
         x_size,
         y_size,
         image_type,
-        image_type_name,
         scan_type,
-        scan_type_name,
         group_id,
         page_data_size,
         min_z_value,
@@ -952,7 +1162,13 @@ fn read_default_type(cursor: &mut Cursor<&[u8]>, page: &Sm4Page) -> Sm4PageHeade
     }
 }
 
-fn read_page_data(cursor: &mut Cursor<&[u8]>, offset: u32, size: u32, z_scale: f32, z_offset: f32) -> ReadType {
+fn read_page_data(
+    cursor: &mut Cursor<&[u8]>,
+    offset: u32,
+    size: u32,
+    z_scale: f32,
+    z_offset: f32,
+) -> ReadType {
     cursor.set_position(offset as u64);
     let len = size / 4;
     let mut page_data = Vec::with_capacity(len as usize);
@@ -989,8 +1205,7 @@ enum ReadType {
 #[derive(Debug)]
 struct ImageDriftHeader {
     imagedrift_filetime: u64,
-    imagedrift_drift_option_type: u32,
-    imagedrift_drift_option_type_name: String,
+    imagedrift_drift_option_type: RhkDriftOptionType,
 }
 
 #[derive(Debug)]
@@ -1027,13 +1242,10 @@ fn read_image_drift_header(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType 
     cursor.set_position(offset as u64);
     // unix epoch
     let imagedrift_filetime = cursor.read_u64_le();
-    let imagedrift_drift_option_type = cursor.read_u32_le();
-    let imagedrift_drift_option_type_name =
-        get_drift_option_type_name(imagedrift_drift_option_type);
+    let imagedrift_drift_option_type = RhkDriftOptionType::from_num(cursor.read_u32_le());
     ReadType::ImageDriftHeader(ImageDriftHeader {
         imagedrift_filetime,
         imagedrift_drift_option_type,
-        imagedrift_drift_option_type_name,
     })
 }
 
@@ -1270,7 +1482,7 @@ fn read_prm_header(
 
 fn get_offset_object_prm(object_list: &Vec<Sm4Object>) -> Result<u32> {
     for obj in object_list {
-        if obj.name == "RHK_OBJECT_PRM" {
+        if let RhkObjectType::Prm = obj.obj_type {
             return Ok(obj.offset);
         }
     }
@@ -1702,7 +1914,7 @@ fn read_pi_controller_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType 
 }
 
 #[derive(Debug)]
-struct LowpassFilterInfo{
+struct LowpassFilterInfo {
     info: String,
 }
 
@@ -1710,5 +1922,7 @@ fn read_lowpass_filter_info(cursor: &mut Cursor<&[u8]>, offset: u32) -> ReadType
     cursor.set_position(offset as u64);
     _ = cursor.read_u32_le();
     let lowpass_filter_info = read_sm4_string(cursor);
-    ReadType::LowpassFilterInfo(LowpassFilterInfo { info: lowpass_filter_info })
+    ReadType::LowpassFilterInfo(LowpassFilterInfo {
+        info: lowpass_filter_info,
+    })
 }
