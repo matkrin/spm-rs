@@ -628,13 +628,28 @@ struct Sm4PageHeaderDefault {
     object_list: Vec<Sm4Object>,
 }
 
-pub fn read_rhk_sm4(filename: &str) -> Result<()> {
+#[derive(Debug)]
+pub struct Sm4Image {
+    pub current: f64,
+    pub bias: f64,
+    pub xsize: f64,
+    pub ysize: f64,
+    pub xres: u32,
+    pub yres: u32,
+    pub rotation: f64,
+    pub raster_time: f64,
+    pub xoffset: f64,
+    pub yoffset: f64,
+    pub data: Vec<f64>,
+}
+
+pub fn read_rhk_sm4(filename: &str) -> Result<Vec<Sm4Image>> {
     let bytes = read(filename)?;
     let _file_len = bytes.len();
     let mut cursor = Cursor::new(bytes.as_slice());
 
     let mut header = read_header(&mut cursor);
-    
+
     for _ in 0..header.object_list_count {
         header.object_list.push(read_sm4_object(&mut cursor))
     }
@@ -661,7 +676,8 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
     }
 
     let mut page_objects = Vec::with_capacity(pages.len());
-    for page in pages {
+    let mut images = Vec::new();
+    for page in &pages {
         let mut page_header = read_page_header(&mut cursor, &page)?;
         match page_header {
             Sm4PageHeader::Sequential(ref mut ph) => {
@@ -684,14 +700,35 @@ pub fn read_rhk_sm4(filename: &str) -> Result<()> {
             if obj.offset != 0 && obj.size != 0 {
                 let read_obj =
                     read_object_content(obj, &page_header, &mut cursor, &mut tiptrack_info_count)?;
+                match (&read_obj, &page_header) {
+                    (ReadType::PageData(data), Sm4PageHeader::Default(ph)) => {
+                        if let RhkPageType::Topographic = ph.page_type {
+                            images.push(Sm4Image {
+                                current: ph.current as f64,
+                                bias: ph.bias as f64,
+                                xsize: ph.x_scale as f64 * ph.x_size as f64,
+                                ysize: ph.y_size as f64 * ph.y_scale as f64,
+                                xres: ph.x_size,
+                                yres: ph.y_size,
+                                rotation: ph.angle as f64,
+                                raster_time: ph.period as f64,
+                                xoffset: ph.x_offset as f64,
+                                yoffset: ph.y_offset as f64,
+                                data: data.clone(),
+                            });
+                        }
+                    }
+                    _ => {}
+                };
                 read_objects.push(read_obj);
             }
         }
         page_objects.push(read_objects)
     }
 
+    dbg!(&images.len());
 
-    Ok(())
+    Ok(images)
 }
 
 fn read_object_content(
@@ -703,7 +740,6 @@ fn read_object_content(
     let read_obj = match obj.obj_type {
         RhkObjectType::PageData => {
             if let Sm4PageHeader::Default(ph) = page_header {
-                dbg!(&ph.x_offset);
                 read_page_data(cursor, obj.offset, obj.size, ph.z_scale, ph.z_offset)
             } else {
                 ReadType::Unknown
