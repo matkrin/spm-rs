@@ -40,7 +40,7 @@ fn main() -> Result<()> {
         // println!("{:?}", wave.bname)
     } else if args.filename.to_lowercase().ends_with(".sm4") {
         let rhk_sm4 = read_rhk_sm4(&args.filename)?;
-        dbg!(rhk_sm4);
+        // dbg!(rhk_sm4);
     }
 
     Ok(())

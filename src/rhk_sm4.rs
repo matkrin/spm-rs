@@ -706,8 +706,8 @@ pub fn read_rhk_sm4(filename: &str) -> Result<Vec<Sm4Image>> {
                             images.push(Sm4Image {
                                 current: ph.current as f64,
                                 bias: ph.bias as f64,
-                                xsize: ph.x_scale as f64 * ph.x_size as f64,
-                                ysize: ph.y_size as f64 * ph.y_scale as f64,
+                                xsize: (ph.x_scale as f64 * ph.x_size as f64).abs(),
+                                ysize: (ph.y_size as f64 * ph.y_scale as f64).abs(),
                                 xres: ph.x_size,
                                 yres: ph.y_size,
                                 rotation: ph.angle as f64,
@@ -725,8 +725,6 @@ pub fn read_rhk_sm4(filename: &str) -> Result<Vec<Sm4Image>> {
         }
         page_objects.push(read_objects)
     }
-
-    dbg!(&images.len());
 
     Ok(images)
 }
