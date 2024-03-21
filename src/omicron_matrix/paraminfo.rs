@@ -25,19 +25,19 @@ pub struct ParamData {
     pub tffs: HashMap<String, f64>,
 }
 
-static CURRENT: &'static str = "Regulator.Setpoint_1 [Ampere]";
-static _CURRENT_ALT: &'static str = "Regulator.Alternate_Setpoint_1 [Ampere]";
-static BIAS: &'static str = "GapVoltageControl.Voltage [Volt]";
-static XSIZE: &'static str = "XYScanner.Width [Meter]";
-static YSIZE: &'static str = "XYScanner.Height [Meter]";
-static XRES: &'static str = "XYScanner.Points [Count]";
-static YRES: &'static str = "XYScanner.Lines [Count]";
-static ROTATION: &'static str = "XYScanner.Angle [Degree]";
-static RASTER_TIME: &'static str = "XYScanner.Raster_Time [Second]";
-static XOFFSET: &'static str = "XYScanner.X_Offset [Meter]";
-static YOFFSET: &'static str = "XYScanner.Y_Offset [Meter]";
-static XRETRACE: &'static str = "XYScanner.X_Retrace [--]";
-static YRETRACE: &'static str = "XYScanner.Y_Retrace [--]";
+static CURRENT: &str = "Regulator.Setpoint_1 [Ampere]";
+static _CURRENT_ALT: &str = "Regulator.Alternate_Setpoint_1 [Ampere]";
+static BIAS: &str = "GapVoltageControl.Voltage [Volt]";
+static XSIZE: &str = "XYScanner.Width [Meter]";
+static YSIZE: &str = "XYScanner.Height [Meter]";
+static XRES: &str = "XYScanner.Points [Count]";
+static YRES: &str = "XYScanner.Lines [Count]";
+static ROTATION: &str = "XYScanner.Angle [Degree]";
+static RASTER_TIME: &str = "XYScanner.Raster_Time [Second]";
+static XOFFSET: &str = "XYScanner.X_Offset [Meter]";
+static YOFFSET: &str = "XYScanner.Y_Offset [Meter]";
+static XRETRACE: &str = "XYScanner.X_Retrace [--]";
+static YRETRACE: &str = "XYScanner.Y_Retrace [--]";
 
 pub fn get_param_info(filename: &str) -> Result<ParamData> {
     let basename = Path::new(filename).file_name().unwrap().to_str().unwrap();
@@ -104,10 +104,10 @@ pub fn get_param_info(filename: &str) -> Result<ParamData> {
                     yoffset = x;
                 }
                 if let MatrixType::BOOL(x) = hm[XRETRACE] {
-                    xretrace = if x == 0 { false } else { true };
+                    xretrace = x != 0;
                 }
                 if let MatrixType::BOOL(x) = hm[YRETRACE] {
-                    yretrace = if x == 0 { false } else { true };
+                    yretrace = x != 0;
                 }
             }
             IdentBlock::PMOD(hm) => {
@@ -145,11 +145,11 @@ pub fn get_param_info(filename: &str) -> Result<ParamData> {
                     }
                 } else if hm.contains_key(XRETRACE) {
                     if let MatrixType::BOOL(x) = hm[XRETRACE] {
-                        xretrace = if x == 0 { false } else { true };
+                        xretrace = x != 0;
                     }
                 } else if hm.contains_key(YRETRACE) {
                     if let MatrixType::BOOL(x) = hm[YRETRACE] {
-                        yretrace = if x == 0 { false } else { true };
+                        yretrace = x != 0;
                     }
                 }
             }

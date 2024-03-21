@@ -45,7 +45,7 @@ impl SpmImage {
         let mut png_bytes: Vec<u8> = Vec::new();
         rgba.write_to(
             &mut Cursor::new(&mut png_bytes),
-            image::ImageOutputFormat::Png,
+            image::ImageFormat::Png,
         )
         .ok();
         png_bytes

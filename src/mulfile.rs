@@ -14,33 +14,33 @@ use crate::utils::{read_i16_le_bytes, Bytereading};
 #[derive(Debug)]
 pub struct MulImage {
     pub filepath: PathBuf,
-    pub img_num: i32,
+    pub img_num: i16,
     pub img_id: String,
-    pub size: i32,
-    pub xres: i32,
-    pub yres: i32,
-    pub zres: i32,
+    pub size: i16,
+    pub xres: i16,
+    pub yres: i16,
+    pub zres: i16,
     pub datetime: DateTime<Utc>,
-    pub xsize: i32,
-    pub ysize: i32,
-    pub xoffset: i32,
-    pub yoffset: i32,
-    pub zscale: i32,
-    pub tilt: i32,
+    pub xsize: i16,
+    pub ysize: i16,
+    pub xoffset: i16,
+    pub yoffset: i16,
+    pub zscale: i16,
+    pub tilt: i16,
     pub speed: f64,
     pub line_time: f64,
     pub bias: f64,
     pub current: f64,
     pub sample: String,
     pub title: String,
-    pub postpr: i32,
-    pub postd1: i32,
-    pub mode: i32,
-    pub currfac: i32,
-    pub num_pointscans: i32,
-    pub unitnr: i32,
-    pub version: i32,
-    pub gain: i32,
+    pub postpr: i16,
+    pub postd1: i16,
+    pub mode: i16,
+    pub currfac: i16,
+    pub num_pointscans: i16,
+    pub unitnr: i16,
+    pub version: i16,
+    pub gain: i16,
     pub img_data: SpmImage,
 }
 
@@ -170,7 +170,7 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
 
         let img_data = read_mul_img_data(
             &mut cursor,
-            (xres as i32 * yres as i32).into(),
+            (xres * yres).into(),
             zscale.into(),
         );
 
@@ -206,8 +206,16 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
         let current = f64::from(current) * f64::from(currfac) * 0.01; // in nA
 
         let datetime = Utc
-            .ymd(year.try_into()?, month.try_into()?, day.try_into()?)
-            .and_hms(hour.try_into()?, minute.try_into()?, second.try_into()?);
+            .with_ymd_and_hms(
+                year.into(),
+                month as u32,
+                day as u32,
+                hour as u32,
+                minute as u32,
+                second as u32,
+            )
+            .single()
+            .expect("Parsing datetime failed");
 
         let filepath = PathBuf::from(&filename);
         let basename = filepath.file_stem().unwrap().to_str().unwrap();
@@ -218,33 +226,33 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
 
         mul.push(MulImage {
             filepath,
-            img_num: img_num.into(),
+            img_num,
             img_id: img_id.clone(),
-            size: size.into(),
-            xres: xres.into(),
-            yres: yres.into(),
-            zres: zres.into(),
+            size,
+            xres,
+            yres,
+            zres,
             datetime,
-            xsize: xsize.into(),
-            ysize: ysize.into(),
-            xoffset: xoffset.into(),
-            yoffset: yoffset.into(),
-            zscale: zscale.into(),
-            tilt: tilt.into(),
-            speed: speed.into(),
+            xsize,
+            ysize,
+            xoffset,
+            yoffset,
+            zscale,
+            tilt,
+            speed: speed as f64,
             line_time,
             bias,
             current,
             sample,
             title,
-            postpr: postpr.into(),
-            postd1: postd1.into(),
-            mode: mode.into(),
-            currfac: currfac.into(),
-            num_pointscans: num_pointscans.into(),
-            unitnr: unitnr.into(),
-            version: version.into(),
-            gain: gain.into(),
+            postpr,
+            postd1,
+            mode,
+            currfac,
+            num_pointscans,
+            unitnr,
+            version,
+            gain,
             img_data: SpmImage {
                 img_id,
                 xres: xres as u32,
