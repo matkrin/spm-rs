@@ -39,7 +39,7 @@ impl SpmImage {
     pub fn to_png_bytes(&self) -> Vec<u8> {
         let pixels = self.norm();
         let img_buffer: ImageBuffer<Luma<u8>, Vec<u8>> =
-            ImageBuffer::from_vec(self.xres as u32, self.yres as u32, pixels)
+            ImageBuffer::from_vec(self.xres, self.yres, pixels)
                 .expect("to create image buffer");
         let rgba = img_buffer.expand_palette(&ROCKET, None);
         let mut png_bytes: Vec<u8> = Vec::new();
@@ -58,8 +58,8 @@ impl SpmImage {
         image::save_buffer(
             out_name,
             &pixels,
-            self.xres as u32,
-            self.yres as u32,
+            self.xres,
+            self.yres,
             image::ColorType::L8,
         )
         .ok();
@@ -85,7 +85,7 @@ impl SpmImage {
         let correction = ones * lstsq[0] + x_coords * lstsq[1] + y_coords * lstsq[2];
 
         let corrected = DMatrix::from_vec(yres, xres, self.img_data.clone()) - correction;
-        self.img_data = corrected.as_slice().try_into().unwrap();
+        self.img_data = corrected.as_slice().into();
         self
     }
 
@@ -97,7 +97,7 @@ impl SpmImage {
         let means = img_data_matrix.row_mean();
         let correction = DMatrix::from_fn(yres, xres, |_, j| means[j]);
         let corrected = img_data_matrix - correction;
-        self.img_data = corrected.as_slice().try_into().unwrap();
+        self.img_data = corrected.as_slice().into();
         self
     }
 }

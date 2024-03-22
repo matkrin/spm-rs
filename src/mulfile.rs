@@ -1,4 +1,4 @@
-use std::fs::read;
+use std::fs;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::str;
@@ -17,11 +17,15 @@ pub struct MulImage {
     pub img_num: i16,
     pub img_id: String,
     pub size: i16,
-    pub xres: i16,
-    pub yres: i16,
+    /// Size in pixels
+    pub xres: usize,
+    /// Size in pixels
+    pub yres: usize,
     pub zres: i16,
     pub datetime: DateTime<Utc>,
+    /// Size in physical units
     pub xsize: i16,
+    /// Size in pixels
     pub ysize: i16,
     pub xoffset: i16,
     pub yoffset: i16,
@@ -63,8 +67,8 @@ fn read_mul_pixels(buffer: &[u8], zscale: i32) -> Vec<f64> {
     pixels
 }
 
-fn read_mul_img_data(cursor: &mut Cursor<&[u8]>, num_pixels: i32, zscale: i32) -> Vec<f64> {
-    let mut buffer = vec![0; (num_pixels * 2) as usize];
+fn read_mul_img_data(cursor: &mut Cursor<&[u8]>, num_pixels: usize, zscale: i32) -> Vec<f64> {
+    let mut buffer = vec![0; num_pixels * 2];
     cursor.read_exact(&mut buffer).unwrap();
     read_mul_pixels(&buffer, zscale)
 }
@@ -92,7 +96,7 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
     let mut block_counter = 0;
     let mut mul: Vec<MulImage> = Vec::new();
 
-    let bytes = read(filename)?;
+    let bytes = fs::read(filename)?;
     let file_len = bytes.len();
     let mut cursor = Cursor::new(bytes.as_slice());
 
@@ -114,8 +118,9 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
         let img_num = cursor.read_i16_le();
         let size = cursor.read_i16_le();
 
-        let xres = cursor.read_i16_le();
-        let yres = cursor.read_i16_le();
+        // we know these must be positive
+        let xres = cursor.read_i16_le() as usize;
+        let yres = cursor.read_i16_le() as usize;
         let zres = cursor.read_i16_le();
 
         let year = cursor.read_i16_le();
@@ -135,7 +140,7 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
         let tilt = cursor.read_i16_le();
         let speed = cursor.read_i16_le() / 100; // in s
 
-        let bias = cursor.read_i16_le();
+        let bias = f64::from(cursor.read_i16_le());
         let current = cursor.read_i16_le();
 
         let sample = read_mul_string(&mut cursor);
@@ -168,11 +173,7 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
         let _spare_62 = cursor.read_i16_le();
         let _spare_63 = cursor.read_i16_le();
 
-        let img_data = read_mul_img_data(
-            &mut cursor,
-            (xres * yres).into(),
-            zscale.into(),
-        );
+        let img_data = read_mul_img_data(&mut cursor, xres * yres, zscale.into());
 
         if num_pointscans > 0 {
             for _ in 0..num_pointscans {
@@ -201,8 +202,8 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
             }
         }
 
-        let line_time = f64::from(speed) / f64::from(yres) * 1000.0; // in ms
-        let bias = -f64::from(bias) / 3.2768; //  in mV
+        let line_time = f64::from(speed) / (yres as f64) * 1000.0; // in ms
+        let bias = -bias / 3.2768; //  in mV
         let current = f64::from(current) * f64::from(currfac) * 0.01; // in nA
 
         let datetime = Utc
