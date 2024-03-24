@@ -1,11 +1,8 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::RwLock;
 
 use anyhow::Result;
 use clap::Parser;
-use eframe::egui::accesskit::Vec2;
-use spm_rs::igor_ibw::read_ibw;
+// use spm_rs::igor_ibw::read_ibw;
 use spm_rs::mulfile::{read_mul, MulImage};
 
 // use spm_rs::rhk_sm4::read_rhk_sm4;
@@ -137,38 +134,42 @@ impl MyApp {
                         };
                         println!("clicked {:?}", response);
                     }
-                    if self.active_images.get(&img.img.img_id).is_some_and(|&x| x) {
-                        let new_viewport_id = egui::ViewportId::from_hash_of(&img.img.img_id);
-                        let new_viewport = egui::ViewportBuilder::default()
-                            .with_title(&img.img.img_id)
-                            .with_inner_size(egui::Vec2 {
-                                x: img.img.xres as f32,
-                                y: img.img.yres as f32,
-                            });
-                        ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, class| {
-                            egui::CentralPanel::default().show(ctx, |ui| {
-                                let image_clone = egui::Image::from_bytes(
-                                    img.img.img_id.clone(),
-                                    img.png.clone(),
-                                );
-                                ui.add(image_clone);
-                            });
-
-                            if ctx.input(|i| i.viewport().close_requested()) {
-                                // Tell parent viewport that we should not show next frame:
-                                if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
-                                    *entry = false;
-                                };
-                            }
-                        });
-                    };
                 }
             });
+    }
+
+    fn analysis_windows(&mut self, ctx: &egui::Context) {
+        for img in self.images.iter() {
+            if self.active_images.get(&img.img.img_id).is_some_and(|&x| x) {
+                let new_viewport_id = egui::ViewportId::from_hash_of(&img.img.img_id);
+                let new_viewport = egui::ViewportBuilder::default()
+                    .with_title(&img.img.img_id)
+                    .with_inner_size(egui::Vec2 {
+                        x: img.img.xres as f32,
+                        y: img.img.yres as f32,
+                    });
+                ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, class| {
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        let image_clone =
+                            egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone());
+                        ui.add(image_clone);
+                    });
+
+                    if ctx.input(|i| i.viewport().close_requested()) {
+                        // Tell parent viewport that we should not show next frame:
+                        if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
+                            *entry = false;
+                        };
+                    }
+                });
+            };
+        }
     }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.main_window(ctx);
+        self.analysis_windows(ctx);
     }
 }
