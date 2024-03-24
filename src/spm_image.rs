@@ -1,7 +1,8 @@
 use std::io::Cursor;
 
 use image::{ImageBuffer, Luma};
-use nalgebra::{DMatrix, DVector};
+use linfa_linalg::qr::LeastSquaresQr;
+use ndarray::{Array, Array2, ArrayView, Axis};
 
 use crate::rocket::ROCKET;
 
@@ -10,8 +11,8 @@ pub struct SpmImage {
     pub img_id: String,
     pub xsize: f64,
     pub ysize: f64,
-    pub xres: u32,
-    pub yres: u32,
+    pub xres: usize,
+    pub yres: usize,
     pub img_data: Vec<f64>,
 }
 
@@ -39,15 +40,12 @@ impl SpmImage {
     pub fn to_png_bytes(&self) -> Vec<u8> {
         let pixels = self.norm();
         let img_buffer: ImageBuffer<Luma<u8>, Vec<u8>> =
-            ImageBuffer::from_vec(self.xres, self.yres, pixels)
+            ImageBuffer::from_vec(self.xres as u32, self.yres as u32, pixels)
                 .expect("to create image buffer");
         let rgba = img_buffer.expand_palette(&ROCKET, None);
         let mut png_bytes: Vec<u8> = Vec::new();
-        rgba.write_to(
-            &mut Cursor::new(&mut png_bytes),
-            image::ImageFormat::Png,
-        )
-        .ok();
+        rgba.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
+            .ok();
         png_bytes
     }
 
@@ -58,46 +56,56 @@ impl SpmImage {
         image::save_buffer(
             out_name,
             &pixels,
-            self.xres,
-            self.yres,
+            self.xres as u32,
+            self.yres as u32,
             image::ColorType::L8,
         )
         .ok();
     }
 
     pub fn correct_plane(&mut self) -> &Self {
-        let xres = self.xres as usize;
-        let yres = self.yres as usize;
+        let xres = self.xres;
+        let yres = self.yres;
 
-        let img_data_vec = DVector::from_vec(self.img_data.clone());
+        let img_data = Array::from_vec(self.img_data.clone())
+            .into_shape((xres, yres))
+            .unwrap();
+        let img_data_flat = Array::from_vec(self.img_data.clone())
+            .into_shape((xres * yres, 1))
+            .unwrap();
+        let ones: Array2<f64> = Array::ones((xres, yres));
 
-        let mut coeffs = DMatrix::from_element(xres * yres, 3, 1.0);
-        let x_coords = DMatrix::from_fn(yres, xres, |_, j| j as f64);
-        let y_coords = DMatrix::from_fn(yres, xres, |i, _| i as f64);
+        let mut coeffs: Array2<f64> = Array::ones((xres * yres, 1));
+        let x_coords = Array::from_shape_fn((xres, yres), |(_, j)| j as f64);
+        let y_coords = Array::from_shape_fn((xres, yres), |(i, _)| i as f64);
 
-        coeffs.set_column(1, &DVector::from_column_slice(x_coords.as_slice()));
-        coeffs.set_column(2, &DVector::from_column_slice(y_coords.as_slice()));
+        let x_view = ArrayView::from(&x_coords);
+        let x_coords_flat = x_view.into_shape(xres * yres).unwrap();
+        coeffs.push_column(x_coords_flat).unwrap();
+        coeffs
+            .push_column(ArrayView::from(&y_coords).into_shape(xres * yres).unwrap())
+            .unwrap();
+        let res = coeffs.least_squares(&img_data_flat).unwrap();
+        // let qr = coeffs.qr().unwrap();
+        // let res = qr.solve(&img_data_flat);
 
-        let lstsq = coeffs.svd(true, true).solve(&img_data_vec, 1e-14).unwrap();
+        let correction = ones * res[[0, 0]] + x_coords * res[[1, 0]] + y_coords * res[[2, 0]];
+        let s = img_data - correction;
 
-        let ones = DMatrix::from_element(yres, xres, 1.0);
-
-        let correction = ones * lstsq[0] + x_coords * lstsq[1] + y_coords * lstsq[2];
-
-        let corrected = DMatrix::from_vec(yres, xres, self.img_data.clone()) - correction;
-        self.img_data = corrected.as_slice().into();
+        self.img_data = s.into_raw_vec();
         self
     }
 
     pub fn correct_lines(&mut self) -> &Self {
-        let xres = self.xres as usize;
-        let yres = self.yres as usize;
+        let xres = self.xres;
+        let yres = self.yres;
 
-        let img_data_matrix = DMatrix::from_vec(yres, xres, self.img_data.clone());
-        let means = img_data_matrix.row_mean();
-        let correction = DMatrix::from_fn(yres, xres, |_, j| means[j]);
-        let corrected = img_data_matrix - correction;
-        self.img_data = corrected.as_slice().into();
+        let img_data = Array::from_vec(self.img_data.clone())
+            .into_shape((xres, yres))
+            .unwrap();
+        let means = img_data.mean_axis(Axis(1)).unwrap();
+        let corrected = img_data - means.broadcast((yres, xres)).unwrap().t();
+        self.img_data = corrected.into_raw_vec();
         self
     }
 }

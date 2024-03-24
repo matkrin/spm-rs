@@ -256,8 +256,8 @@ pub fn read_mul(filename: &str) -> Result<Vec<MulImage>> {
             gain,
             img_data: SpmImage {
                 img_id,
-                xres: xres as u32,
-                yres: yres as u32,
+                xres,
+                yres,
                 xsize: xsize as f64,
                 ysize: ysize as f64,
                 img_data,
