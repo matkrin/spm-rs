@@ -1,7 +1,12 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::sync::RwLock;
+
 use anyhow::Result;
 use clap::Parser;
+use eframe::egui::accesskit::Vec2;
 use spm_rs::igor_ibw::read_ibw;
-use spm_rs::mulfile::read_mul;
+use spm_rs::mulfile::{read_mul, MulImage};
 
 // use spm_rs::rhk_sm4::read_rhk_sm4;
 
@@ -57,59 +62,113 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-struct MyApp<'a> {
-    images: Vec<egui::Image<'a>>,
+struct GuiImage {
+    img: MulImage,
+    png: Vec<u8>,
 }
 
-impl<'a> MyApp<'_> {
+struct MyApp {
+    images: Vec<GuiImage>,
+    active_images: HashMap<String, bool>,
+}
+
+impl MyApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let args = Args::parse();
 
         if args.filename.ends_with(".mul") || args.filename.ends_with(".flm") {
-            let mut mulfile = read_mul(&args.filename).unwrap();
+            let mulfile = read_mul(&args.filename).unwrap();
+
+            let active_images = mulfile
+                .iter()
+                .map(|img| (img.img_id.clone(), false))
+                .collect();
+
+            let gui_images = mulfile
+                .into_iter()
+                .map(|mut img| {
+                    img.img_data.correct_plane();
+                    img.img_data.correct_lines();
+                    let png = img.img_data.to_png_bytes();
+                    GuiImage { img, png }
+                })
+                .collect();
 
             Self {
-                images: mulfile
-                    .iter_mut()
-                    .map(|m| {
-                        m.img_data.correct_plane();
-                        m.img_data.correct_lines();
-                        let uri = m.img_id.clone();
-                        let bytes = m.img_data.to_png_bytes();
-
-                        egui::Image::from_bytes(uri, bytes)
-                    })
-                    .collect(),
+                images: gui_images,
+                active_images,
             }
         } else {
-            Self { images: Vec::new() }
+            Self {
+                images: Vec::new(),
+                active_images: HashMap::new(),
+            }
         }
+    }
+
+    fn main_window(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| self.grid_view(ctx, ui));
+        });
+    }
+
+    fn grid_view(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        egui::Grid::new("grid")
+            .spacing(egui::vec2(5.0, 5.0))
+            .show(ui, |ui| {
+                for (i, img) in self.images.iter().enumerate() {
+                    if (i + 1) % 5 == 0 {
+                        ui.end_row();
+                    }
+
+                    let sense = egui::Sense {
+                        click: true,
+                        drag: false,
+                        focusable: false,
+                    };
+                    let image_clone =
+                        egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone())
+                            .sense(sense)
+                            .fit_to_exact_size(egui::Vec2 { x: 200., y: 200. });
+                    let response = ui.add(image_clone);
+                    if response.double_clicked() {
+                        if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
+                            *entry = true;
+                        };
+                        println!("clicked {:?}", response);
+                    }
+                    if self.active_images.get(&img.img.img_id).is_some_and(|&x| x) {
+                        let new_viewport_id = egui::ViewportId::from_hash_of(&img.img.img_id);
+                        let new_viewport = egui::ViewportBuilder::default()
+                            .with_title(&img.img.img_id)
+                            .with_inner_size(egui::Vec2 {
+                                x: img.img.xres as f32,
+                                y: img.img.yres as f32,
+                            });
+                        ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, class| {
+                            egui::CentralPanel::default().show(ctx, |ui| {
+                                let image_clone = egui::Image::from_bytes(
+                                    img.img.img_id.clone(),
+                                    img.png.clone(),
+                                );
+                                ui.add(image_clone);
+                            });
+
+                            if ctx.input(|i| i.viewport().close_requested()) {
+                                // Tell parent viewport that we should not show next frame:
+                                if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
+                                    *entry = false;
+                                };
+                            }
+                        });
+                    };
+                }
+            });
     }
 }
 
-impl eframe::App for MyApp<'_> {
+impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                egui::Grid::new("grod")
-                    .spacing(egui::vec2(5.0, 5.0))
-                    .show(ui, |ui| {
-                        for (i, img) in self.images.iter().enumerate() {
-                            let sense = egui::Sense { click: true, drag: false, focusable: false };
-                            let image_clone = img
-                                .clone()
-                                .sense(sense)
-                                .fit_to_exact_size(egui::Vec2 { x: 200., y: 200. });
-                            let response = ui.add(image_clone);
-                            if response.clicked() {
-                                println!("clicked {:?}", response);
-                            }
-                            if (i + 1) % 5 == 0 {
-                                ui.end_row();
-                            }
-                        }
-                    });
-            });
-        });
+        self.main_window(ctx);
     }
 }
