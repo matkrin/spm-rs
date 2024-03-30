@@ -7,7 +7,16 @@ use spm_rs::mulfile::{read_mul, MulImage};
 
 // use spm_rs::rhk_sm4::read_rhk_sm4;
 
-use eframe::egui;
+use eframe::{
+    egui,
+    emath::RectTransform,
+    epaint::{Color32, Rounding},
+};
+
+const BROWSER_IMAGE_SIZE: f32 = 200.0;
+const IMAGES_PER_ROW: usize = 7;
+const BROWSER_WINDOW_WIDTH: f32 = (IMAGES_PER_ROW as f32) * (BROWSER_IMAGE_SIZE + 5.0) + 10.0;
+const BROWSER_WINDOW_HEIGHT: f32 = 800.0;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -16,41 +25,14 @@ struct Args {
     filename: String,
 }
 
-// fn main() -> Result<()> {
-//     let args = Args::parse();
-//     if args.filename.ends_with(".mul") || args.filename.ends_with(".flm") {
-//         let mulfile = read_mul(&args.filename)?;
-//         // let b = load_from_memory(mulfile[0].img_data.img_data.as_slice());
-//         println!("{:?}", mulfile[0].img_data.to_png_bytes());
-
-//         // for mut i in mulfile {
-//         //     i.img_data.correct_plane();
-//         //     i.img_data.correct_lines();
-//         //     i.img_data.save_png();
-//         // }
-//     } else if args.filename.ends_with(".Z_mtrx") {
-//         let mut omicron_matrix = read_omicron_matrix(&args.filename)?;
-//         omicron_matrix.img_data_fw.correct_plane();
-//         omicron_matrix.img_data_bw.correct_lines();
-//         // omicron_matrix.img_data_fw.save_png();
-//         // omicron_matrix.img_data_bw.save_png();
-//     } else if args.filename.ends_with(".ibw") {
-//         let wave = read_ibw(&args.filename)?;
-//         dbg!(wave);
-//         // println!("{}", wave.data[0]);
-//         // println!("{:?}", wave.bname)
-//     // } else if args.filename.to_lowercase().ends_with(".sm4") {
-//         // let rhk_sm4 = read_rhk_sm4(&args.filename)?;
-//         // dbg!(rhk_sm4);
-//     }
-
-//     Ok(())
-// }
-
 fn main() -> Result<(), eframe::Error> {
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([BROWSER_WINDOW_WIDTH, BROWSER_WINDOW_HEIGHT]),
+        ..Default::default()
+    };
     eframe::run_native(
-        "My egui App",
+        "spm-rs",
         native_options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
@@ -70,7 +52,7 @@ struct MyApp {
 }
 
 impl MyApp {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let args = Args::parse();
 
         if args.filename.ends_with(".mul") || args.filename.ends_with(".flm") {
@@ -109,15 +91,11 @@ impl MyApp {
         });
     }
 
-    fn grid_view(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn grid_view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
         egui::Grid::new("grid")
             .spacing(egui::vec2(5.0, 5.0))
             .show(ui, |ui| {
                 for (i, img) in self.images.iter().enumerate() {
-                    if (i + 1) % 5 == 0 {
-                        ui.end_row();
-                    }
-
                     let sense = egui::Sense {
                         click: true,
                         drag: false,
@@ -126,13 +104,19 @@ impl MyApp {
                     let image_clone =
                         egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone())
                             .sense(sense)
-                            .fit_to_exact_size(egui::Vec2 { x: 200., y: 200. });
+                            .fit_to_exact_size(egui::Vec2 {
+                                x: BROWSER_IMAGE_SIZE,
+                                y: BROWSER_IMAGE_SIZE,
+                            });
                     let response = ui.add(image_clone);
                     if response.double_clicked() {
                         if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
                             *entry = true;
                         };
                         println!("clicked {:?}", response);
+                    }
+                    if (i + 1) % IMAGES_PER_ROW == 0 {
+                        ui.end_row();
                     }
                 }
             });
@@ -148,21 +132,62 @@ impl MyApp {
                         x: img.img.xres as f32,
                         y: img.img.yres as f32,
                     });
-                ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, class| {
+                ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, _class| {
                     egui::CentralPanel::default().show(ctx, |ui| {
-                        let image_clone =
-                            egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone());
-                        ui.add(image_clone);
-                    });
+                        // ui.add(image_clone);
 
-                    if ctx.input(|i| i.viewport().close_requested()) {
-                        // Tell parent viewport that we should not show next frame:
-                        if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
-                            *entry = false;
-                        };
-                    }
+                        // Create a "canvas" for drawing on that's 100% x 300px
+                        let (response, painter) = ui.allocate_painter(
+                            egui::Vec2::new(ui.available_width(), 512.0),
+                            egui::Sense::hover(),
+                        );
+
+                        // Get the relative position of our "canvas"
+                        // let to_screen = RectTransform::from_to(
+                        //     egui::Rect::from_min_size(egui::Pos2::ZERO, response.rect.size()),
+                        //     response.rect,
+                        // );
+                        egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone()).paint_at(
+                            ui,
+                            egui::Rect::from_two_pos(
+                                egui::pos2(0.0, 0.0),
+                                egui::pos2(img.img.xres as f32, img.img.yres as f32),
+                            ),
+                        );
+
+                        // The line we want to draw represented as 2 points
+                        // let first_point = egui::Pos2 { x: 0.0, y: 0.0 };
+                        // let second_point = egui::Pos2 { x: 300.0, y: 300.0 };
+                        // Make the points relative to the "canvas"
+                        // let first_point_in_screen = to_screen.transform_pos(first_point);
+                        // let second_point_in_screen = to_screen.transform_pos(second_point);
+
+                        // Paint the line!
+                        // painter.rect(, , , )
+                        painter.add(egui::Shape::Rect(eframe::epaint::RectShape {
+                            rect: egui::Rect::from_two_pos(
+                                egui::pos2(100., 100.),
+                                egui::pos2(400., 400.),
+                            ),
+                            rounding: Rounding::ZERO,
+                            fill: Color32::TRANSPARENT,
+                            stroke: egui::Stroke {
+                                width: 2.,
+                                color: Color32::YELLOW,
+                            },
+                            fill_texture_id: egui::TextureId::Managed(0),
+                            uv: egui::Rect::ZERO,
+                        }));
+
+                        if ctx.input(|i| i.viewport().close_requested()) {
+                            // Tell parent viewport that we should not show next frame:
+                            if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
+                                *entry = false;
+                            };
+                        }
+                    });
                 });
-            };
+            }
         }
     }
 }
