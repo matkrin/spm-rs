@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::BitOr};
 
 use anyhow::Result;
 use clap::Parser;
@@ -41,14 +41,40 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+#[derive(Debug)]
 struct GuiImage {
     img: MulImage,
     png: Vec<u8>,
 }
 
+impl GuiImage {
+    pub fn new(img: MulImage) -> Self {
+        let png = img.img_data.to_png_bytes();
+        Self { img, png }
+    }
+
+    pub fn img_id(&self) -> String {
+        self.img.img_id.clone()
+    }
+
+    pub fn xres(&self) -> usize {
+        self.img.xres
+    }
+
+    pub fn yres(&self) -> usize {
+        self.img.yres
+    }
+
+    pub fn set_png(&mut self, png: Vec<u8>) {
+        self.png = png
+    }
+}
+
 struct MyApp {
     images: Vec<GuiImage>,
     active_images: HashMap<String, bool>,
+    start_rect: egui::Pos2,
+    end_rect: egui::Pos2,
 }
 
 impl MyApp {
@@ -68,19 +94,22 @@ impl MyApp {
                 .map(|mut img| {
                     img.img_data.correct_plane();
                     img.img_data.correct_lines();
-                    let png = img.img_data.to_png_bytes();
-                    GuiImage { img, png }
+                    GuiImage::new(img)
                 })
                 .collect();
 
             Self {
                 images: gui_images,
                 active_images,
+                start_rect: egui::Pos2::default(),
+                end_rect: egui::Pos2::default(),
             }
         } else {
             Self {
                 images: Vec::new(),
                 active_images: HashMap::new(),
+                start_rect: egui::Pos2::default(),
+                end_rect: egui::Pos2::default(),
             }
         }
     }
@@ -123,23 +152,31 @@ impl MyApp {
     }
 
     fn analysis_windows(&mut self, ctx: &egui::Context) {
-        for img in self.images.iter() {
+        for img in self.images.iter_mut() {
             if self.active_images.get(&img.img.img_id).is_some_and(|&x| x) {
                 let new_viewport_id = egui::ViewportId::from_hash_of(&img.img.img_id);
                 let new_viewport = egui::ViewportBuilder::default()
                     .with_title(&img.img.img_id)
                     .with_inner_size(egui::Vec2 {
-                        x: img.img.xres as f32,
-                        y: img.img.yres as f32,
+                        x: img.xres() as f32,
+                        y: img.yres() as f32,
                     });
                 ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, _class| {
                     egui::CentralPanel::default().show(ctx, |ui| {
                         // ui.add(image_clone);
+                        let analysis_image = egui::Image::from_bytes(img.img_id(), img.png.clone());
+                        analysis_image.paint_at(
+                            ui,
+                            egui::Rect::from_two_pos(
+                                egui::pos2(0.0, 0.0),
+                                egui::pos2(img.xres() as f32, img.yres() as f32),
+                            ),
+                        );
 
                         // Create a "canvas" for drawing on that's 100% x 300px
                         let (response, painter) = ui.allocate_painter(
                             egui::Vec2::new(ui.available_width(), 512.0),
-                            egui::Sense::hover(),
+                            egui::Sense::click_and_drag(),
                         );
 
                         // Get the relative position of our "canvas"
@@ -147,32 +184,52 @@ impl MyApp {
                         //     egui::Rect::from_min_size(egui::Pos2::ZERO, response.rect.size()),
                         //     response.rect,
                         // );
-                        egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone()).paint_at(
-                            ui,
-                            egui::Rect::from_two_pos(
-                                egui::pos2(0.0, 0.0),
-                                egui::pos2(img.img.xres as f32, img.img.yres as f32),
-                            ),
-                        );
 
-                        // The line we want to draw represented as 2 points
-                        // let first_point = egui::Pos2 { x: 0.0, y: 0.0 };
-                        // let second_point = egui::Pos2 { x: 300.0, y: 300.0 };
-                        // Make the points relative to the "canvas"
-                        // let first_point_in_screen = to_screen.transform_pos(first_point);
-                        // let second_point_in_screen = to_screen.transform_pos(second_point);
+                        if response.drag_started() {
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                println!("Drag start at : {:?}", pointer_pos);
+                                self.start_rect = pointer_pos;
+                            }
+                        }
 
-                        // Paint the line!
-                        // painter.rect(, , , )
+                        if response.dragged() {
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                self.end_rect = pointer_pos;
+                            }
+                        }
+
+                        if response.drag_released() {
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                println!("Drag end at: {:?}", pointer_pos);
+                                self.end_rect = pointer_pos;
+                                let mut x_start = self.start_rect.x.round() as usize;
+                                let mut y_start = self.start_rect.y.round() as usize;
+                                let mut x_end = self.end_rect.x.round() as usize;
+                                let mut y_end = self.end_rect.y.round() as usize;
+                                if x_start > x_end {
+                                    std::mem::swap(&mut x_start, &mut x_end);
+                                }
+                                if y_start > y_end {
+                                    std::mem::swap(&mut y_start, &mut y_end);
+                                }
+                                dbg!(&img.png[0..10]);
+                                let new_png = img
+                                    .img
+                                    .img_data
+                                    .to_png_bytes_selection(y_start, y_end, x_start, x_end);
+                                img.set_png(new_png);
+                                let analysis_image_uri = analysis_image.source().uri().unwrap_or_default().to_string();
+                                ui.ctx().forget_image(&analysis_image_uri);
+                                println!("released : {:?}", &img.png[1000..1010]);
+                            }
+                        }
+
                         painter.add(egui::Shape::Rect(eframe::epaint::RectShape {
-                            rect: egui::Rect::from_two_pos(
-                                egui::pos2(100., 100.),
-                                egui::pos2(400., 400.),
-                            ),
+                            rect: egui::Rect::from_two_pos(self.start_rect, self.end_rect),
                             rounding: Rounding::ZERO,
                             fill: Color32::TRANSPARENT,
                             stroke: egui::Stroke {
-                                width: 2.,
+                                width: 1.0,
                                 color: Color32::YELLOW,
                             },
                             fill_texture_id: egui::TextureId::Managed(0),
