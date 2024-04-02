@@ -1,8 +1,9 @@
 use std::io::Cursor;
 
+use anyhow::Context;
 use image::{ImageBuffer, Luma};
 use linfa_linalg::qr::LeastSquaresQr;
-use ndarray::{Array, Array2, ArrayView, Axis};
+use ndarray::{Array, Array2, ArrayView, Axis, s};
 
 use crate::rocket::ROCKET;
 
@@ -33,20 +34,20 @@ impl SpmImage {
         self.normalize_min_max(*min, *max)
     }
 
-    fn norm_selection(&self, y_start: usize, y_end: usize, x_start: usize, x_end: usize) -> Vec<u8> {
-        let arr = ndarray::ArrayView::from(&self.img_data)
+    fn norm_selection(&self, y_start: usize, y_end: usize, x_start: usize, x_end: usize) -> anyhow::Result<Vec<u8>> {
+        let arr = ArrayView::from(&self.img_data)
             .into_shape((self.yres, self.xres))
             .unwrap();
-        let slice = arr.slice(ndarray::s![y_start..y_end, x_start..x_end]);
+        let slice = arr.slice(s![y_start..y_end, x_start..x_end]);
         let min = slice
             .iter()
             .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .context("Could not get min value for normalization")?;
         let max = slice
             .iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-        self.normalize_min_max(*min, *max)
+            .context("Could not get max value for normalization")?;
+        Ok(self.normalize_min_max(*min, *max))
     }
 
     fn normalize_min_max(&self, min: f64, max: f64) -> Vec<u8> {
@@ -58,9 +59,9 @@ impl SpmImage {
         pixels
     }
 
-    pub fn to_png_bytes_selection(&self, y_start:usize, y_end: usize, x_start: usize, x_end: usize) -> Vec<u8> {
-        let pixels = self.norm_selection(y_start, y_end, x_start, x_end);
-        self.create_png_bytes(pixels)
+    pub fn to_png_bytes_selection(&self, y_start:usize, y_end: usize, x_start: usize, x_end: usize) -> anyhow::Result<Vec<u8>> {
+        let pixels = self.norm_selection(y_start, y_end, x_start, x_end)?;
+        Ok(self.create_png_bytes(pixels))
     }
 
     pub fn to_png_bytes(&self) -> Vec<u8> {

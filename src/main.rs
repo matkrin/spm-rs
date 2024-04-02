@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use anyhow::Result;
 use clap::Parser;
 // use spm_rs::igor_ibw::read_ibw;
-use spm_rs::mulfile::{read_mul, MulImage};
+use spm_rs::{
+    mulfile::{read_mul, MulImage},
+    spm_image::SpmImage,
+};
 
 // use spm_rs::rhk_sm4::read_rhk_sm4;
 
@@ -55,6 +58,10 @@ impl GuiImage {
 
     pub fn img_id(&self) -> String {
         self.img.img_id.clone()
+    }
+
+    pub fn img_data(&self) -> &SpmImage {
+        &self.img.img_data
     }
 
     pub fn xres(&self) -> usize {
@@ -154,31 +161,30 @@ impl MyApp {
 
     fn analysis_windows(&mut self, ctx: &egui::Context) -> Result<()> {
         for img in self.images.iter_mut() {
-            if self.active_images.get(&img.img.img_id).is_some_and(|&x| x) {
-                let new_viewport_id = egui::ViewportId::from_hash_of(&img.img.img_id);
+            if self.active_images.get(&img.img_id()).is_some_and(|&x| x) {
+                let new_viewport_id = egui::ViewportId::from_hash_of(&img.img_id());
                 let new_viewport = egui::ViewportBuilder::default()
-                    .with_title(&img.img.img_id)
+                    .with_title(&img.img_id())
                     .with_inner_size(egui::Vec2 {
                         x: img.xres() as f32,
                         y: img.yres() as f32,
                     });
                 ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, _class| {
-                    egui::CentralPanel::default().show(ctx, |ui| {
+                    egui::CentralPanel::default().frame(egui::Frame::none()).show(ctx, |ui| {
                         // ui.add(image_clone);
                         let analysis_image = egui::Image::from_bytes(img.img_id(), img.png.clone());
-                        analysis_image.paint_at(
-                            ui,
-                            egui::Rect::from_two_pos(
-                                egui::pos2(0.0, 0.0),
-                                egui::pos2(img.xres() as f32, img.yres() as f32),
-                            ),
+                        let image_rect = egui::Rect::from_two_pos(
+                            egui::Pos2::ZERO,
+                            egui::pos2(img.xres() as f32, img.yres() as f32),
                         );
+                        analysis_image.paint_at(ui, image_rect);
 
-                        // Create a "canvas" for drawing on that's 100% x 300px
+                        // Create a "canvas" for drawing on
                         let (response, painter) = ui.allocate_painter(
-                            egui::Vec2::new(ui.available_width(), 512.0),
+                            egui::Vec2::new(img.xres() as f32, img.yres() as f32),
                             egui::Sense::click_and_drag(),
                         );
+
 
                         // Get the relative position of our "canvas"
                         // let to_screen = RectTransform::from_to(
@@ -188,38 +194,45 @@ impl MyApp {
 
                         if response.drag_started() {
                             if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                self.start_rect = pointer_pos;
+                                let xres = img.xres() as f32;
+                                let yres = img.yres() as f32;
+                                let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
+                                let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
+                                self.start_rect = egui::pos2(x, y);
                             }
                         }
 
                         if response.dragged() {
                             if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                self.end_rect = pointer_pos;
+                                let xres = img.xres() as f32;
+                                let yres = img.yres() as f32;
+                                let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
+                                let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
+                                self.end_rect = egui::pos2(x, y);
                             }
                         }
 
                         if response.drag_released() {
-                            if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                self.end_rect = pointer_pos;
-                                let mut x_start = self.start_rect.x.round() as usize;
-                                let mut y_start = self.start_rect.y.round() as usize;
-                                let mut x_end = self.end_rect.x.round() as usize;
-                                let mut y_end = self.end_rect.y.round() as usize;
-                                if x_start > x_end {
-                                    std::mem::swap(&mut x_start, &mut x_end);
-                                }
-                                if y_start > y_end {
-                                    std::mem::swap(&mut y_start, &mut y_end);
-                                }
-                                let new_png = img
-                                    .img
-                                    .img_data
-                                    .to_png_bytes_selection(y_start, y_end, x_start, x_end);
-                                img.set_png(new_png);
-                                let analysis_image_uri = analysis_image.source().uri().unwrap_or_default().to_string();
-                                ui.ctx().forget_image(&analysis_image_uri);
-                                println!("released : {:?}", &img.png[1000..1010]);
+                            let mut x_start = self.start_rect.x.round() as usize;
+                            let mut y_start = self.start_rect.y.round() as usize;
+                            let mut x_end = self.end_rect.x.round() as usize;
+                            let mut y_end = self.end_rect.y.round() as usize;
+                            if x_start > x_end {
+                                std::mem::swap(&mut x_start, &mut x_end);
                             }
+                            if y_start > y_end {
+                                std::mem::swap(&mut y_start, &mut y_end);
+                            }
+                            println!("x_start : {x_start}, x_end : {x_end}, y_start : {y_start}, y_end: {y_end}" );
+                            if let Ok(new_png) = img.img_data().to_png_bytes_selection(y_start, y_end, x_start, x_end) {
+                                img.set_png(new_png);
+                                let analysis_image_uri = analysis_image
+                                    .source()
+                                    .uri()
+                                    .unwrap_or_default()
+                                    .to_string();
+                                ui.ctx().forget_image(&analysis_image_uri);
+                            };
                         }
 
                         painter.add(egui::Shape::Rect(eframe::epaint::RectShape {
