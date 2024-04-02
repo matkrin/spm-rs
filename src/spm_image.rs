@@ -30,21 +30,14 @@ impl SpmImage {
             .iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
-        let diff = max - min;
-        let pixels: Vec<u8> = self
-            .img_data
-            .iter()
-            .map(|x| ((x - min) / diff * 255.0) as u8)
-            .collect();
-        pixels
+        self.normalize_min_max(*min, *max)
     }
 
-    pub fn norm_selection(&self, y_start: usize, y_end: usize, x_start: usize, x_end: usize) -> Vec<u8> {
+    fn norm_selection(&self, y_start: usize, y_end: usize, x_start: usize, x_end: usize) -> Vec<u8> {
         let arr = ndarray::ArrayView::from(&self.img_data)
             .into_shape((self.yres, self.xres))
             .unwrap();
         let slice = arr.slice(ndarray::s![y_start..y_end, x_start..x_end]);
-        dbg!(&slice.shape());
         let min = slice
             .iter()
             .min_by(|a, b| a.partial_cmp(b).unwrap())
@@ -53,9 +46,11 @@ impl SpmImage {
             .iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
+        self.normalize_min_max(*min, *max)
+    }
+
+    fn normalize_min_max(&self, min: f64, max: f64) -> Vec<u8> {
         let diff = max - min;
-        dbg!(min);
-        dbg!(max);
         let pixels: Vec<u8> = self.img_data
             .iter()
             .map(|x| ((x - min) / diff * 255.0) as u8)
@@ -65,18 +60,15 @@ impl SpmImage {
 
     pub fn to_png_bytes_selection(&self, y_start:usize, y_end: usize, x_start: usize, x_end: usize) -> Vec<u8> {
         let pixels = self.norm_selection(y_start, y_end, x_start, x_end);
-        let img_buffer: ImageBuffer<Luma<u8>, Vec<u8>> =
-            ImageBuffer::from_vec(self.xres as u32, self.yres as u32, pixels)
-                .expect("to create image buffer");
-        let rgba = img_buffer.expand_palette(&ROCKET, None);
-        let mut png_bytes: Vec<u8> = Vec::new();
-        rgba.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
-            .ok();
-        png_bytes
+        self.create_png_bytes(pixels)
     }
 
     pub fn to_png_bytes(&self) -> Vec<u8> {
         let pixels = self.norm();
+        self.create_png_bytes(pixels)
+    }
+
+    fn create_png_bytes(&self, pixels: Vec<u8>) -> Vec<u8> {
         let img_buffer: ImageBuffer<Luma<u8>, Vec<u8>> =
             ImageBuffer::from_vec(self.xres as u32, self.yres as u32, pixels)
                 .expect("to create image buffer");
@@ -85,6 +77,7 @@ impl SpmImage {
         rgba.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)
             .ok();
         png_bytes
+        
     }
 
     pub fn save_png(&self) {

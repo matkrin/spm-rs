@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::BitOr};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use clap::Parser;
@@ -14,9 +14,9 @@ use eframe::{
 };
 
 const BROWSER_IMAGE_SIZE: f32 = 200.0;
-const IMAGES_PER_ROW: usize = 7;
+const IMAGES_PER_ROW: usize = 6;
 const BROWSER_WINDOW_WIDTH: f32 = (IMAGES_PER_ROW as f32) * (BROWSER_IMAGE_SIZE + 5.0) + 10.0;
-const BROWSER_WINDOW_HEIGHT: f32 = 800.0;
+const BROWSER_WINDOW_HEIGHT: f32 = 700.0;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -120,7 +120,7 @@ impl MyApp {
         });
     }
 
-    fn grid_view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn grid_view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) -> Result<()> {
         egui::Grid::new("grid")
             .spacing(egui::vec2(5.0, 5.0))
             .show(ui, |ui| {
@@ -149,9 +149,10 @@ impl MyApp {
                     }
                 }
             });
+        Ok(())
     }
 
-    fn analysis_windows(&mut self, ctx: &egui::Context) {
+    fn analysis_windows(&mut self, ctx: &egui::Context) -> Result<()> {
         for img in self.images.iter_mut() {
             if self.active_images.get(&img.img.img_id).is_some_and(|&x| x) {
                 let new_viewport_id = egui::ViewportId::from_hash_of(&img.img.img_id);
@@ -187,7 +188,6 @@ impl MyApp {
 
                         if response.drag_started() {
                             if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                println!("Drag start at : {:?}", pointer_pos);
                                 self.start_rect = pointer_pos;
                             }
                         }
@@ -200,7 +200,6 @@ impl MyApp {
 
                         if response.drag_released() {
                             if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                println!("Drag end at: {:?}", pointer_pos);
                                 self.end_rect = pointer_pos;
                                 let mut x_start = self.start_rect.x.round() as usize;
                                 let mut y_start = self.start_rect.y.round() as usize;
@@ -212,7 +211,6 @@ impl MyApp {
                                 if y_start > y_end {
                                     std::mem::swap(&mut y_start, &mut y_end);
                                 }
-                                dbg!(&img.png[0..10]);
                                 let new_png = img
                                     .img
                                     .img_data
@@ -246,6 +244,7 @@ impl MyApp {
                 });
             }
         }
+        Ok(())
     }
 }
 
