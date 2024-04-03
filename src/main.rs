@@ -123,7 +123,43 @@ impl MyApp {
 
     fn main_window(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| self.grid_view(ctx, ui));
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                self.menu(ctx, ui);
+                self.grid_view(ctx, ui);
+            });
+        });
+    }
+
+    fn menu(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                if ui.button("Open").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_file() {
+                        let picked_path = path.display().to_string();
+                        dbg!(&picked_path);
+
+                        let mulfile = read_mul(&picked_path).unwrap();
+
+                        let active_images = mulfile
+                            .iter()
+                            .map(|img| (img.img_id.clone(), false))
+                            .collect();
+
+                        let gui_images = mulfile
+                            .into_iter()
+                            .map(|mut img| {
+                                img.img_data.correct_plane();
+                                img.img_data.correct_lines();
+                                GuiImage::new(img)
+                            })
+                            .collect();
+                        self.images = gui_images;
+                        self.active_images = active_images;
+                        self.start_rect = egui::Pos2::default();
+                        self.end_rect = egui::Pos2::default();
+                    }
+                }
+            });
         });
     }
 
