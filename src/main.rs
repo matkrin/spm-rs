@@ -25,7 +25,7 @@ const BROWSER_WINDOW_HEIGHT: f32 = 700.0;
 #[command(author, version, about, long_about=None)]
 struct Args {
     #[arg()]
-    filename: String,
+    filename: Option<String>,
 }
 
 fn main() -> Result<(), eframe::Error> {
@@ -88,43 +88,45 @@ impl MyApp {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let args = Args::parse();
 
-        if args.filename.ends_with(".mul") || args.filename.ends_with(".flm") {
-            let mulfile = read_mul(&args.filename).unwrap();
+        match args.filename {
+            Some(filename) if filename.ends_with(".mul") || filename.ends_with(".flm") => {
+                let mulfile = read_mul(&filename).unwrap();
 
-            let active_images = mulfile
-                .iter()
-                .map(|img| (img.img_id.clone(), false))
-                .collect();
+                let active_images = mulfile
+                    .iter()
+                    .map(|img| (img.img_id.clone(), false))
+                    .collect();
 
-            let gui_images = mulfile
-                .into_iter()
-                .map(|mut img| {
-                    img.img_data.correct_plane();
-                    img.img_data.correct_lines();
-                    GuiImage::new(img)
-                })
-                .collect();
+                let gui_images = mulfile
+                    .into_iter()
+                    .map(|mut img| {
+                        img.img_data.correct_plane();
+                        img.img_data.correct_lines();
+                        GuiImage::new(img)
+                    })
+                    .collect();
 
-            Self {
-                images: gui_images,
-                active_images,
-                start_rect: egui::Pos2::default(),
-                end_rect: egui::Pos2::default(),
+                Self {
+                    images: gui_images,
+                    active_images,
+                    start_rect: egui::Pos2::default(),
+                    end_rect: egui::Pos2::default(),
+                }
             }
-        } else {
-            Self {
-                images: Vec::new(),
-                active_images: HashMap::new(),
-                start_rect: egui::Pos2::default(),
-                end_rect: egui::Pos2::default(),
-            }
+            _ => Self {
+                        images: Vec::new(),
+                        active_images: HashMap::new(),
+                        start_rect: egui::Pos2::default(),
+                        end_rect: egui::Pos2::default(),
+                    },
         }
     }
 
     fn main_window(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            self.menu(ctx, ui);
+            ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.menu(ctx, ui);
                 self.grid_view(ctx, ui);
             });
         });
