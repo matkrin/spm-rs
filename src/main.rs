@@ -11,7 +11,7 @@ use spm_rs::{
 // use spm_rs::rhk_sm4::read_rhk_sm4;
 
 use eframe::{
-    egui,
+    egui::{self, Button},
     emath::RectTransform,
     epaint::{Color32, Rounding},
 };
@@ -114,11 +114,11 @@ impl MyApp {
                 }
             }
             _ => Self {
-                        images: Vec::new(),
-                        active_images: HashMap::new(),
-                        start_rect: egui::Pos2::default(),
-                        end_rect: egui::Pos2::default(),
-                    },
+                images: Vec::new(),
+                active_images: HashMap::new(),
+                start_rect: egui::Pos2::default(),
+                end_rect: egui::Pos2::default(),
+            },
         }
     }
 
@@ -134,35 +134,49 @@ impl MyApp {
 
     fn menu(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
         egui::menu::bar(ui, |ui| {
+            let open_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::O);
+            if ui.input_mut(|i| i.consume_shortcut(&open_shortcut)) {
+                self.open_file();
+            }
+
             ui.menu_button("File", |ui| {
-                if ui.button("Open").clicked() {
-                    if let Some(path) = rfd::FileDialog::new().pick_file() {
-                        let picked_path = path.display().to_string();
-                        dbg!(&picked_path);
-
-                        let mulfile = read_mul(&picked_path).unwrap();
-
-                        let active_images = mulfile
-                            .iter()
-                            .map(|img| (img.img_id.clone(), false))
-                            .collect();
-
-                        let gui_images = mulfile
-                            .into_iter()
-                            .map(|mut img| {
-                                img.img_data.correct_plane();
-                                img.img_data.correct_lines();
-                                GuiImage::new(img)
-                            })
-                            .collect();
-                        self.images = gui_images;
-                        self.active_images = active_images;
-                        self.start_rect = egui::Pos2::default();
-                        self.end_rect = egui::Pos2::default();
-                    }
+                if ui
+                    .add(
+                        egui::Button::new("Open")
+                            .shortcut_text(ui.ctx().format_shortcut(&open_shortcut)),
+                    )
+                    .clicked()
+                {
+                    self.open_file();
                 }
             });
         });
+    }
+
+    fn open_file(&mut self) {
+        if let Some(path) = rfd::FileDialog::new().pick_file() {
+            let picked_path = path.display().to_string();
+
+            let mulfile = read_mul(&picked_path).unwrap();
+
+            let active_images = mulfile
+                .iter()
+                .map(|img| (img.img_id.clone(), false))
+                .collect();
+
+            let gui_images = mulfile
+                .into_iter()
+                .map(|mut img| {
+                    img.img_data.correct_plane();
+                    img.img_data.correct_lines();
+                    GuiImage::new(img)
+                })
+                .collect();
+            self.images = gui_images;
+            self.active_images = active_images;
+            self.start_rect = egui::Pos2::default();
+            self.end_rect = egui::Pos2::default();
+        }
     }
 
     fn grid_view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) -> Result<()> {
