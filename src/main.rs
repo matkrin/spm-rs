@@ -125,9 +125,10 @@ impl MyApp {
     }
 
     fn main_window(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::TopBottomPanel::top("menu_panel").show(ctx, |ui| {
             self.menu(ctx, ui);
-            ui.separator();
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.grid_view(ctx, ui);
             });
@@ -144,7 +145,7 @@ impl MyApp {
             ui.menu_button("File", |ui| {
                 if ui
                     .add(
-                        egui::Button::new("Open")
+                        egui::Button::new("Open...")
                             .shortcut_text(ui.ctx().format_shortcut(&open_shortcut)),
                     )
                     .clicked()
