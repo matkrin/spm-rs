@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Result;
 use clap::Parser;
@@ -46,6 +46,11 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+struct GuiFile {
+    filename: String,
+    gui_images: Vec<GuiImage>,
+}
+
 #[derive(Debug)]
 struct GuiImage {
     img: MulImage,
@@ -80,7 +85,7 @@ impl GuiImage {
 }
 
 struct MyApp {
-    images: Vec<GuiImage>,
+    images: BTreeMap<String, GuiFile>,
     active_images: HashMap<String, bool>,
     start_rect: egui::Pos2,
     end_rect: egui::Pos2,
@@ -89,6 +94,7 @@ struct MyApp {
 impl MyApp {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let args = Args::parse();
+        let mut images = BTreeMap::new();
 
         match args.filename {
             Some(filename) if filename.ends_with(".mul") || filename.ends_with(".flm") => {
@@ -99,7 +105,7 @@ impl MyApp {
                     .map(|img| (img.img_id.clone(), false))
                     .collect();
 
-                let gui_images = mulfile
+                let gui_images: Vec<GuiImage> = mulfile
                     .into_iter()
                     .map(|mut img| {
                         img.img_data.correct_plane();
@@ -108,15 +114,23 @@ impl MyApp {
                     })
                     .collect();
 
+                images.insert(
+                    filename.clone(),
+                    GuiFile {
+                        filename,
+                        gui_images,
+                    },
+                );
+
                 Self {
-                    images: gui_images,
+                    images,
                     active_images,
                     start_rect: egui::Pos2::default(),
                     end_rect: egui::Pos2::default(),
                 }
             }
             _ => Self {
-                images: Vec::new(),
+                images,
                 active_images: HashMap::new(),
                 start_rect: egui::Pos2::default(),
                 end_rect: egui::Pos2::default(),
@@ -158,73 +172,97 @@ impl MyApp {
 
     fn open_file(&mut self) {
         if let Some(path) = rfd::FileDialog::new().pick_file() {
-            let picked_path = path.display().to_string();
+            dbg!(&path);
+            if let Some(parent) = path.parent() {
+                dbg!(&parent);
+                // let picked_path = parent.display().to_string();
+                for f in std::fs::read_dir(parent).unwrap() {
+                    let f = f.unwrap();
+                    dbg!(&f);
+                    if f.path().extension().is_some_and(|x| x == "mul") {
+                        dbg!(&f);
 
-            let mulfile = read_mul(&picked_path).unwrap();
+                        let filename = f.file_name().to_str().unwrap().to_owned();
+                        dbg!(&filename);
+                        let mulfile = read_mul(f.path().to_str().unwrap()).unwrap();
 
-            let active_images = mulfile
-                .iter()
-                .map(|img| (img.img_id.clone(), false))
-                .collect();
+                        let active_images: HashMap<String, bool> = mulfile
+                            .iter()
+                            .map(|img| (img.img_id.clone(), false))
+                            .collect();
 
-            let gui_images = mulfile
-                .into_iter()
-                .map(|mut img| {
-                    img.img_data.correct_plane();
-                    img.img_data.correct_lines();
-                    GuiImage::new(img)
-                })
-                .collect();
-            self.images = gui_images;
-            self.active_images = active_images;
-            self.start_rect = egui::Pos2::default();
-            self.end_rect = egui::Pos2::default();
+                        let gui_images: Vec<GuiImage> = mulfile
+                            .into_iter()
+                            .map(|mut img| {
+                                img.img_data.correct_plane();
+                                img.img_data.correct_lines();
+                                GuiImage::new(img)
+                            })
+                            .collect();
+
+                        self.images.insert(
+                            filename.clone(),
+                            GuiFile {
+                                filename: filename,
+                                gui_images,
+                            },
+                        );
+                        self.active_images.extend(active_images);
+                        self.start_rect = egui::Pos2::default();
+                        self.end_rect = egui::Pos2::default();
+                    }
+                }
+            }
         }
     }
 
-    fn grid_view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) -> Result<()> {
-        egui::Grid::new("grid")
-            .spacing(egui::vec2(5.0, 5.0))
-            .show(ui, |ui| {
-                for (i, img) in self.images.iter().enumerate() {
-                    let sense = egui::Sense {
-                        click: true,
-                        drag: false,
-                        focusable: false,
-                    };
-                    let image_clone =
-                        egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone())
-                            .sense(sense)
-                            .fit_to_exact_size(egui::Vec2 {
-                                x: BROWSER_IMAGE_SIZE,
-                                y: BROWSER_IMAGE_SIZE,
-                            });
-                    let response = ui.add(image_clone);
-                    if response.double_clicked() {
-                        if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
-                            *entry = true;
+    fn grid_view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+        for (f_name, gui_file) in self.images.iter() {
+            ui.label(f_name);
+            egui::Grid::new(f_name)
+                .spacing(egui::vec2(5.0, 5.0))
+                .show(ui, |ui| {
+                    for (i, img) in gui_file.gui_images.iter().enumerate() {
+                        let sense = egui::Sense {
+                            click: true,
+                            drag: false,
+                            focusable: false,
                         };
-                        println!("clicked {:?}", response);
+                        let image_clone =
+                            egui::Image::from_bytes(img.img.img_id.clone(), img.png.clone())
+                                .sense(sense)
+                                .fit_to_exact_size(egui::Vec2 {
+                                    x: BROWSER_IMAGE_SIZE,
+                                    y: BROWSER_IMAGE_SIZE,
+                                });
+                        let response = ui.add(image_clone);
+                        if response.double_clicked() {
+                            if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
+                                *entry = true;
+                            };
+                            println!("clicked {:?}", response);
+                        }
+                        if (i + 1) % IMAGES_PER_ROW == 0 {
+                            ui.end_row();
+                        }
                     }
-                    if (i + 1) % IMAGES_PER_ROW == 0 {
-                        ui.end_row();
-                    }
-                }
-            });
-        Ok(())
+                });
+            ui.separator();
+        }
     }
 
     fn analysis_windows(&mut self, ctx: &egui::Context) -> Result<()> {
-        for img in self.images.iter_mut() {
-            if self.active_images.get(&img.img_id()).is_some_and(|&x| x) {
-                let new_viewport_id = egui::ViewportId::from_hash_of(&img.img_id());
-                let new_viewport = egui::ViewportBuilder::default()
-                    .with_title(&img.img_id())
-                    .with_inner_size(egui::Vec2 {
-                        x: img.xres() as f32,
-                        y: img.yres() as f32,
-                    });
-                ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, _class| {
+        for (_, gui_file) in self.images.iter_mut() {
+            for img in gui_file.gui_images.iter_mut() {
+                if self.active_images.get(&img.img_id()).is_some_and(|&x| x) {
+                    let new_viewport_id = egui::ViewportId::from_hash_of(&img.img_id());
+                    let new_viewport = egui::ViewportBuilder::default()
+                        .with_title(&img.img_id())
+                        .with_inner_size(egui::Vec2 {
+                            x: img.xres() as f32,
+                            y: img.yres() as f32,
+                        });
+                    ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, _class| {
                     egui::CentralPanel::default().frame(egui::Frame::none()).show(ctx, |ui| {
                         // ui.add(image_clone);
                         let analysis_image = egui::Image::from_bytes(img.img_id(), img.png.clone());
@@ -310,6 +348,7 @@ impl MyApp {
                         }
                     });
                 });
+                }
             }
         }
         Ok(())
