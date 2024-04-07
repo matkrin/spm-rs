@@ -13,8 +13,8 @@ use spm_rs::{
 // use spm_rs::rhk_sm4::read_rhk_sm4;
 
 use eframe::{
-    egui::{self, Button},
-    emath::RectTransform,
+    egui::{self},
+    // emath::RectTransform,
     epaint::{Color32, Rounding},
 };
 
@@ -85,7 +85,7 @@ impl GuiImage {
 }
 
 struct MyApp {
-    images: BTreeMap<String, GuiFile>,
+    files: BTreeMap<String, GuiFile>,
     active_images: HashMap<String, bool>,
     start_rect: egui::Pos2,
     end_rect: egui::Pos2,
@@ -123,14 +123,14 @@ impl MyApp {
                 );
 
                 Self {
-                    images,
+                    files: images,
                     active_images,
                     start_rect: egui::Pos2::default(),
                     end_rect: egui::Pos2::default(),
                 }
             }
             _ => Self {
-                images,
+                files: images,
                 active_images: HashMap::new(),
                 start_rect: egui::Pos2::default(),
                 end_rect: egui::Pos2::default(),
@@ -153,7 +153,7 @@ impl MyApp {
         egui::menu::bar(ui, |ui| {
             let open_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::O);
             if ui.input_mut(|i| i.consume_shortcut(&open_shortcut)) {
-                self.open_file();
+                let _ = self.open_file();
             }
 
             ui.menu_button("File", |ui| {
@@ -164,27 +164,21 @@ impl MyApp {
                     )
                     .clicked()
                 {
-                    self.open_file();
+                    let _ = self.open_file();
                 }
             });
         });
     }
 
-    fn open_file(&mut self) {
+    fn open_file(&mut self) -> Result<()> {
         if let Some(path) = rfd::FileDialog::new().pick_file() {
-            dbg!(&path);
             if let Some(parent) = path.parent() {
-                dbg!(&parent);
-                // let picked_path = parent.display().to_string();
-                for f in std::fs::read_dir(parent).unwrap() {
-                    let f = f.unwrap();
-                    dbg!(&f);
+                for f in std::fs::read_dir(parent)? {
+                    let f = f?;
                     if f.path().extension().is_some_and(|x| x == "mul") {
-                        dbg!(&f);
+                        let filename = f.file_name();
 
-                        let filename = f.file_name().to_str().unwrap().to_owned();
-                        dbg!(&filename);
-                        let mulfile = read_mul(f.path().to_str().unwrap()).unwrap();
+                        let mulfile = read_mul(&f.path().to_string_lossy())?;
 
                         let active_images: HashMap<String, bool> = mulfile
                             .iter()
@@ -200,24 +194,23 @@ impl MyApp {
                             })
                             .collect();
 
-                        self.images.insert(
-                            filename.clone(),
+                        self.files.insert(
+                            filename.to_string_lossy().to_string(),
                             GuiFile {
-                                filename: filename,
+                                filename: filename.to_string_lossy().to_string(),
                                 gui_images,
                             },
                         );
                         self.active_images.extend(active_images);
-                        self.start_rect = egui::Pos2::default();
-                        self.end_rect = egui::Pos2::default();
                     }
                 }
             }
         }
+        Ok(())
     }
 
     fn grid_view(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
-        for (f_name, gui_file) in self.images.iter() {
+        for (f_name, gui_file) in self.files.iter() {
             ui.label(f_name);
             egui::Grid::new(f_name)
                 .spacing(egui::vec2(5.0, 5.0))
@@ -251,8 +244,8 @@ impl MyApp {
         }
     }
 
-    fn analysis_windows(&mut self, ctx: &egui::Context) -> Result<()> {
-        for (_, gui_file) in self.images.iter_mut() {
+    fn analysis_windows(&mut self, ctx: &egui::Context) {
+        for (_, gui_file) in self.files.iter_mut() {
             for img in gui_file.gui_images.iter_mut() {
                 if self.active_images.get(&img.img_id()).is_some_and(|&x| x) {
                     let new_viewport_id = egui::ViewportId::from_hash_of(&img.img_id());
@@ -263,95 +256,99 @@ impl MyApp {
                             y: img.yres() as f32,
                         });
                     ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, _class| {
-                    egui::CentralPanel::default().frame(egui::Frame::none()).show(ctx, |ui| {
-                        // ui.add(image_clone);
-                        let analysis_image = egui::Image::from_bytes(img.img_id(), img.png.clone());
-                        let image_rect = egui::Rect::from_two_pos(
-                            egui::Pos2::ZERO,
-                            egui::pos2(img.xres() as f32, img.yres() as f32),
-                        );
-                        analysis_image.paint_at(ui, image_rect);
+                        egui::CentralPanel::default()
+                            .frame(egui::Frame::none())
+                            .show(ctx, |ui| {
+                                // ui.add(image_clone);
+                                let analysis_image =
+                                    egui::Image::from_bytes(img.img_id(), img.png.clone());
+                                let image_rect = egui::Rect::from_two_pos(
+                                    egui::Pos2::ZERO,
+                                    egui::pos2(img.xres() as f32, img.yres() as f32),
+                                );
+                                analysis_image.paint_at(ui, image_rect);
 
-                        // Create a "canvas" for drawing on
-                        let (response, painter) = ui.allocate_painter(
-                            egui::Vec2::new(img.xres() as f32, img.yres() as f32),
-                            egui::Sense::click_and_drag(),
-                        );
+                                // Create a "canvas" for drawing on
+                                let (response, painter) = ui.allocate_painter(
+                                    egui::Vec2::new(img.xres() as f32, img.yres() as f32),
+                                    egui::Sense::click_and_drag(),
+                                );
 
+                                // Get the relative position of our "canvas"
+                                // let to_screen = RectTransform::from_to(
+                                //     egui::Rect::from_min_size(egui::Pos2::ZERO, response.rect.size()),
+                                //     response.rect,
+                                // );
 
-                        // Get the relative position of our "canvas"
-                        // let to_screen = RectTransform::from_to(
-                        //     egui::Rect::from_min_size(egui::Pos2::ZERO, response.rect.size()),
-                        //     response.rect,
-                        // );
+                                if response.drag_started() {
+                                    if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                        let xres = img.xres() as f32;
+                                        let yres = img.yres() as f32;
+                                        let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
+                                        let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
+                                        self.start_rect = egui::pos2(x, y);
+                                    }
+                                }
 
-                        if response.drag_started() {
-                            if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                let xres = img.xres() as f32;
-                                let yres = img.yres() as f32;
-                                let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
-                                let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
-                                self.start_rect = egui::pos2(x, y);
-                            }
-                        }
+                                if response.dragged() {
+                                    if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                        let xres = img.xres() as f32;
+                                        let yres = img.yres() as f32;
+                                        let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
+                                        let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
+                                        self.end_rect = egui::pos2(x, y);
+                                    }
+                                }
 
-                        if response.dragged() {
-                            if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                let xres = img.xres() as f32;
-                                let yres = img.yres() as f32;
-                                let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
-                                let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
-                                self.end_rect = egui::pos2(x, y);
-                            }
-                        }
+                                if response.drag_released() {
+                                    let mut x_start = self.start_rect.x.round() as usize;
+                                    let mut y_start = self.start_rect.y.round() as usize;
+                                    let mut x_end = self.end_rect.x.round() as usize;
+                                    let mut y_end = self.end_rect.y.round() as usize;
+                                    if x_start > x_end {
+                                        std::mem::swap(&mut x_start, &mut x_end);
+                                    }
+                                    if y_start > y_end {
+                                        std::mem::swap(&mut y_start, &mut y_end);
+                                    }
+                                    if let Ok(new_png) = img
+                                        .img_data()
+                                        .to_png_bytes_selection(y_start, y_end, x_start, x_end)
+                                    {
+                                        img.set_png(new_png);
+                                        let analysis_image_uri = analysis_image
+                                            .source()
+                                            .uri()
+                                            .unwrap_or_default()
+                                            .to_string();
+                                        ui.ctx().forget_image(&analysis_image_uri);
+                                    };
+                                }
 
-                        if response.drag_released() {
-                            let mut x_start = self.start_rect.x.round() as usize;
-                            let mut y_start = self.start_rect.y.round() as usize;
-                            let mut x_end = self.end_rect.x.round() as usize;
-                            let mut y_end = self.end_rect.y.round() as usize;
-                            if x_start > x_end {
-                                std::mem::swap(&mut x_start, &mut x_end);
-                            }
-                            if y_start > y_end {
-                                std::mem::swap(&mut y_start, &mut y_end);
-                            }
-                            println!("x_start : {x_start}, x_end : {x_end}, y_start : {y_start}, y_end: {y_end}" );
-                            if let Ok(new_png) = img.img_data().to_png_bytes_selection(y_start, y_end, x_start, x_end) {
-                                img.set_png(new_png);
-                                let analysis_image_uri = analysis_image
-                                    .source()
-                                    .uri()
-                                    .unwrap_or_default()
-                                    .to_string();
-                                ui.ctx().forget_image(&analysis_image_uri);
-                            };
-                        }
+                                painter.add(egui::Shape::Rect(eframe::epaint::RectShape {
+                                    rect: egui::Rect::from_two_pos(self.start_rect, self.end_rect),
+                                    rounding: Rounding::ZERO,
+                                    fill: Color32::TRANSPARENT,
+                                    stroke: egui::Stroke {
+                                        width: 1.0,
+                                        color: Color32::YELLOW,
+                                    },
+                                    fill_texture_id: egui::TextureId::Managed(0),
+                                    uv: egui::Rect::ZERO,
+                                }));
 
-                        painter.add(egui::Shape::Rect(eframe::epaint::RectShape {
-                            rect: egui::Rect::from_two_pos(self.start_rect, self.end_rect),
-                            rounding: Rounding::ZERO,
-                            fill: Color32::TRANSPARENT,
-                            stroke: egui::Stroke {
-                                width: 1.0,
-                                color: Color32::YELLOW,
-                            },
-                            fill_texture_id: egui::TextureId::Managed(0),
-                            uv: egui::Rect::ZERO,
-                        }));
-
-                        if ctx.input(|i| i.viewport().close_requested()) {
-                            // Tell parent viewport that we should not show next frame:
-                            if let Some(entry) = self.active_images.get_mut(&img.img.img_id) {
-                                *entry = false;
-                            };
-                        }
+                                if ctx.input(|i| i.viewport().close_requested()) {
+                                    // Tell parent viewport that we should not show next frame:
+                                    if let Some(entry) = self.active_images.get_mut(&img.img.img_id)
+                                    {
+                                        *entry = false;
+                                    };
+                                }
+                            });
                     });
-                });
                 }
             }
         }
-        Ok(())
     }
 }
 
