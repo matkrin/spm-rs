@@ -14,4 +14,5 @@ egui_extras = {version = "0.26.2", features = ["image"] }
 image = "0.25"
 linfa-linalg = { version = "0.1.0", default-features = false }
 ndarray = "0.15.6"
+notify = "6.1.1"
 rfd = "0.14.1"
