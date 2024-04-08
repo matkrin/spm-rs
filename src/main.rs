@@ -1,6 +1,10 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+    sync::mpsc::{Receiver, Sender},
+};
 
 use anyhow::Result;
 use clap::Parser;
@@ -90,13 +94,17 @@ struct MyApp {
     active_images: HashMap<String, bool>,
     start_rect: egui::Pos2,
     end_rect: egui::Pos2,
-    file_watcher: Option<notify::FsEventWatcher>,
+    file_watcher: Option<notify::RecommendedWatcher>,
+    tx: Sender<PathBuf>,
+    rx: Receiver<PathBuf>,
 }
 
 impl MyApp {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let args = Args::parse();
         let mut images = BTreeMap::new();
+
+        let (tx, rx) = std::sync::mpsc::channel::<PathBuf>();
 
         match args.filename {
             Some(filename) if filename.ends_with(".mul") || filename.ends_with(".flm") => {
@@ -130,6 +138,8 @@ impl MyApp {
                     start_rect: egui::Pos2::default(),
                     end_rect: egui::Pos2::default(),
                     file_watcher: None,
+                    tx,
+                    rx,
                 }
             }
             _ => Self {
@@ -138,6 +148,8 @@ impl MyApp {
                 start_rect: egui::Pos2::default(),
                 end_rect: egui::Pos2::default(),
                 file_watcher: None,
+                tx,
+                rx,
             },
         }
     }
@@ -153,11 +165,11 @@ impl MyApp {
         });
     }
 
-    fn menu(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn menu(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         egui::menu::bar(ui, |ui| {
             let open_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::O);
             if ui.input_mut(|i| i.consume_shortcut(&open_shortcut)) {
-                let _ = self.open_file();
+                let _ = self.open_file(ctx);
             }
 
             ui.menu_button("File", |ui| {
@@ -168,56 +180,35 @@ impl MyApp {
                     )
                     .clicked()
                 {
-                    let _ = self.open_file();
+                    let _ = self.open_file(ctx);
                 }
             });
         });
     }
 
-    fn open_file(&mut self) -> Result<()> {
+    fn open_file(&mut self, ctx: &egui::Context) -> Result<()> {
         if let Some(path) = rfd::FileDialog::new().pick_file() {
             if let Some(parent) = path.parent() {
                 for f in std::fs::read_dir(parent)? {
-                    let f = f?;
-                    if f.path().extension().is_some_and(|x| x == "mul") {
-                        let filename = f.file_name();
-
-                        let mulfile = read_mul(&f.path().to_string_lossy())?;
-
-                        let active_images: HashMap<String, bool> = mulfile
-                            .iter()
-                            .map(|img| (img.img_id.clone(), false))
-                            .collect();
-
-                        let gui_images: Vec<GuiImage> = mulfile
-                            .into_iter()
-                            .map(|mut img| {
-                                img.img_data.correct_plane();
-                                img.img_data.correct_lines();
-                                GuiImage::new(img)
-                            })
-                            .collect();
-
-                        self.files.insert(
-                            filename.to_string_lossy().to_string(),
-                            GuiFile {
-                                filename: filename.to_string_lossy().to_string(),
-                                gui_images,
-                            },
-                        );
-                        self.active_images.extend(active_images);
-                    }
+                    self.load_mulfile(f?.path());
                 }
 
+                let tx_clone = self.tx.clone();
+                let ctx_clone = ctx.clone();
+
                 self.file_watcher = Some(notify::recommended_watcher(
-                    |res: Result<notify::Event, notify::Error>| match res {
+                    move |res: Result<notify::Event, notify::Error>| match res {
                         Ok(event) => match event.kind {
-                            notify::EventKind::Access(notify::event::AccessKind::Close(
-                                notify::event::AccessMode::Write,
-                            )) => {
-                                dbg!(&event.paths);
+                            notify::EventKind::Modify(notify::event::ModifyKind::Any)
+                            | notify::EventKind::Create(notify::event::CreateKind::Any) => {
+                                if let Some(path) = event.paths.first() {
+                                    if path.extension().is_some_and(|x| x == "mul") {
+                                        let _ = tx_clone.send(path.into());
+                                        ctx_clone.request_repaint();
+                                    }
+                                };
                             }
-                            _ => {println!("{:?}", &event);},
+                            _ => (),
                         },
                         Err(_) => todo!(),
                     },
@@ -388,11 +379,45 @@ impl MyApp {
             }
         }
     }
+
+    fn load_mulfile(&mut self, p: PathBuf) {
+        if p.extension().is_some_and(|x| x == "mul") {
+            let filename = p.file_name().unwrap();
+
+            let mulfile = read_mul(&p.to_string_lossy()).unwrap();
+
+            for mul_img in mulfile.iter() {
+                self.active_images
+                    .entry(mul_img.img_id.clone())
+                    .or_insert(false);
+            }
+
+            let gui_images: Vec<GuiImage> = mulfile
+                .into_iter()
+                .map(|mut img| {
+                    img.img_data.correct_plane();
+                    img.img_data.correct_lines();
+                    GuiImage::new(img)
+                })
+                .collect();
+
+            self.files.insert(
+                filename.to_string_lossy().to_string(),
+                GuiFile {
+                    filename: filename.to_string_lossy().to_string(),
+                    gui_images,
+                },
+            );
+        }
+    }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.main_window(ctx);
         self.analysis_windows(ctx);
+        if let Ok(p) = self.rx.try_recv() {
+            self.load_mulfile(p);
+        };
     }
 }
