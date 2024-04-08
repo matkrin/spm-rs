@@ -97,6 +97,7 @@ struct MyApp {
     file_watcher: Option<notify::RecommendedWatcher>,
     tx: Sender<PathBuf>,
     rx: Receiver<PathBuf>,
+    scale_factor: f32,
 }
 
 impl MyApp {
@@ -140,6 +141,7 @@ impl MyApp {
                     file_watcher: None,
                     tx,
                     rx,
+                    scale_factor: 1.0,
                 }
             }
             _ => Self {
@@ -150,6 +152,7 @@ impl MyApp {
                 file_watcher: None,
                 tx,
                 rx,
+                scale_factor: 1.0,
             },
         }
     }
@@ -167,7 +170,7 @@ impl MyApp {
 
     fn menu(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         egui::menu::bar(ui, |ui| {
-            let open_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::O);
+            let open_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::O);
             if ui.input_mut(|i| i.consume_shortcut(&open_shortcut)) {
                 let _ = self.open_file(ctx);
             }
@@ -265,8 +268,8 @@ impl MyApp {
                     let new_viewport = egui::ViewportBuilder::default()
                         .with_title(&img.img_id())
                         .with_inner_size(egui::Vec2 {
-                            x: img.xres() as f32,
-                            y: img.yres() as f32,
+                            x: img.xres() as f32 * self.scale_factor,
+                            y: img.yres() as f32 * self.scale_factor,
                         });
                     ctx.show_viewport_immediate(new_viewport_id, new_viewport, |ctx, _class| {
                         egui::CentralPanel::default()
@@ -277,26 +280,26 @@ impl MyApp {
                                     egui::Image::from_bytes(img.img_id(), img.png.clone());
                                 let image_rect = egui::Rect::from_two_pos(
                                     egui::Pos2::ZERO,
-                                    egui::pos2(img.xres() as f32, img.yres() as f32),
+                                    egui::pos2(img.xres() as f32 * self.scale_factor, img.yres() as f32 * self.scale_factor),
                                 );
                                 analysis_image.paint_at(ui, image_rect);
 
                                 // Create a "canvas" for drawing on
                                 let (response, painter) = ui.allocate_painter(
-                                    egui::Vec2::new(img.xres() as f32, img.yres() as f32),
+                                    egui::Vec2::new(img.xres() as f32 * self.scale_factor, img.yres() as f32 * self.scale_factor),
                                     egui::Sense::click_and_drag(),
                                 );
 
                                 // Get the relative position of our "canvas"
-                                // let to_screen = RectTransform::from_to(
-                                //     egui::Rect::from_min_size(egui::Pos2::ZERO, response.rect.size()),
-                                //     response.rect,
-                                // );
+                                let to_screen = egui::emath::RectTransform::from_to(
+                                    image_rect,
+                                    egui::Rect { min: egui::Pos2::ZERO, max: egui::pos2(img.xres() as f32, img.yres() as f32) },
+                                );
 
                                 if response.drag_started() {
                                     if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                        let xres = img.xres() as f32;
-                                        let yres = img.yres() as f32;
+                                        let xres = img.xres() as f32 * self.scale_factor;
+                                        let yres = img.yres() as f32 * self.scale_factor;
                                         let x = if pointer_pos.x > xres {
                                             xres
                                         } else {
@@ -313,8 +316,8 @@ impl MyApp {
 
                                 if response.dragged() {
                                     if let Some(pointer_pos) = response.interact_pointer_pos() {
-                                        let xres = img.xres() as f32;
-                                        let yres = img.yres() as f32;
+                                        let xres = img.xres() as f32 * self.scale_factor;
+                                        let yres = img.yres() as f32 * self.scale_factor;
                                         let x = if pointer_pos.x > xres {
                                             xres
                                         } else {
@@ -330,10 +333,12 @@ impl MyApp {
                                 }
 
                                 if response.drag_released() {
-                                    let mut x_start = self.start_rect.x.round() as usize;
-                                    let mut y_start = self.start_rect.y.round() as usize;
-                                    let mut x_end = self.end_rect.x.round() as usize;
-                                    let mut y_end = self.end_rect.y.round() as usize;
+                                    let start_rect = to_screen.transform_pos(self.start_rect);
+                                    let end_rect = to_screen.transform_pos(self.end_rect);
+                                    let mut x_start = start_rect.x.round() as usize;
+                                    let mut y_start = start_rect.y.round() as usize;
+                                    let mut x_end = end_rect.x.round() as usize;
+                                    let mut y_end = end_rect.y.round() as usize;
                                     if x_start > x_end {
                                         std::mem::swap(&mut x_start, &mut x_end);
                                     }
@@ -372,6 +377,16 @@ impl MyApp {
                                     {
                                         *entry = false;
                                     };
+                                }
+
+                                if ctx.input(|i| i.key_pressed(egui::Key::Plus)) {
+                                    self.scale_factor *= 1.2;
+                                }
+                                if ctx.input(|i| i.key_pressed(egui::Key::Minus)) {
+                                    self.scale_factor *= 0.8;
+                                }
+                                if ctx.input(|i| i.key_pressed(egui::Key::Num0)) {
+                                    self.scale_factor = 1.0;
                                 }
                             });
                     });
@@ -419,5 +434,6 @@ impl eframe::App for MyApp {
         if let Ok(p) = self.rx.try_recv() {
             self.load_mulfile(p);
         };
+
     }
 }
