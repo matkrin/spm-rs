@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Result;
 use clap::Parser;
+use notify::Watcher;
 // use spm_rs::igor_ibw::read_ibw;
 use spm_rs::{
     mulfile::{read_mul, MulImage},
@@ -89,6 +90,7 @@ struct MyApp {
     active_images: HashMap<String, bool>,
     start_rect: egui::Pos2,
     end_rect: egui::Pos2,
+    file_watcher: Option<notify::FsEventWatcher>,
 }
 
 impl MyApp {
@@ -127,6 +129,7 @@ impl MyApp {
                     active_images,
                     start_rect: egui::Pos2::default(),
                     end_rect: egui::Pos2::default(),
+                    file_watcher: None,
                 }
             }
             _ => Self {
@@ -134,6 +137,7 @@ impl MyApp {
                 active_images: HashMap::new(),
                 start_rect: egui::Pos2::default(),
                 end_rect: egui::Pos2::default(),
+                file_watcher: None,
             },
         }
     }
@@ -203,6 +207,24 @@ impl MyApp {
                         );
                         self.active_images.extend(active_images);
                     }
+                }
+
+                self.file_watcher = Some(notify::recommended_watcher(
+                    |res: Result<notify::Event, notify::Error>| match res {
+                        Ok(event) => match event.kind {
+                            notify::EventKind::Access(notify::event::AccessKind::Close(
+                                notify::event::AccessMode::Write,
+                            )) => {
+                                dbg!(&event.paths);
+                            }
+                            _ => {println!("{:?}", &event);},
+                        },
+                        Err(_) => todo!(),
+                    },
+                )?);
+
+                if let Some(watcher) = self.file_watcher.as_mut() {
+                    watcher.watch(parent, notify::RecursiveMode::Recursive)?;
                 }
             }
         }
@@ -284,8 +306,16 @@ impl MyApp {
                                     if let Some(pointer_pos) = response.interact_pointer_pos() {
                                         let xres = img.xres() as f32;
                                         let yres = img.yres() as f32;
-                                        let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
-                                        let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
+                                        let x = if pointer_pos.x > xres {
+                                            xres
+                                        } else {
+                                            pointer_pos.x
+                                        };
+                                        let y = if pointer_pos.y > yres {
+                                            yres
+                                        } else {
+                                            pointer_pos.y
+                                        };
                                         self.start_rect = egui::pos2(x, y);
                                     }
                                 }
@@ -294,8 +324,16 @@ impl MyApp {
                                     if let Some(pointer_pos) = response.interact_pointer_pos() {
                                         let xres = img.xres() as f32;
                                         let yres = img.yres() as f32;
-                                        let x = if pointer_pos.x > xres { xres } else { pointer_pos.x };
-                                        let y = if pointer_pos.y > yres { yres } else { pointer_pos.y };
+                                        let x = if pointer_pos.x > xres {
+                                            xres
+                                        } else {
+                                            pointer_pos.x
+                                        };
+                                        let y = if pointer_pos.y > yres {
+                                            yres
+                                        } else {
+                                            pointer_pos.y
+                                        };
                                         self.end_rect = egui::pos2(x, y);
                                     }
                                 }
