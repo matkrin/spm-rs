@@ -280,20 +280,29 @@ impl MyApp {
                                     egui::Image::from_bytes(img.img_id(), img.png.clone());
                                 let image_rect = egui::Rect::from_two_pos(
                                     egui::Pos2::ZERO,
-                                    egui::pos2(img.xres() as f32 * self.scale_factor, img.yres() as f32 * self.scale_factor),
+                                    egui::pos2(
+                                        img.xres() as f32 * self.scale_factor,
+                                        img.yres() as f32 * self.scale_factor,
+                                    ),
                                 );
                                 analysis_image.paint_at(ui, image_rect);
 
                                 // Create a "canvas" for drawing on
                                 let (response, painter) = ui.allocate_painter(
-                                    egui::Vec2::new(img.xres() as f32 * self.scale_factor, img.yres() as f32 * self.scale_factor),
+                                    egui::Vec2::new(
+                                        img.xres() as f32 * self.scale_factor,
+                                        img.yres() as f32 * self.scale_factor,
+                                    ),
                                     egui::Sense::click_and_drag(),
                                 );
 
                                 // Get the relative position of our "canvas"
                                 let to_screen = egui::emath::RectTransform::from_to(
                                     image_rect,
-                                    egui::Rect { min: egui::Pos2::ZERO, max: egui::pos2(img.xres() as f32, img.yres() as f32) },
+                                    egui::Rect {
+                                        min: egui::Pos2::ZERO,
+                                        max: egui::pos2(img.xres() as f32, img.yres() as f32),
+                                    },
                                 );
 
                                 if response.drag_started() {
@@ -379,7 +388,10 @@ impl MyApp {
                                     };
                                 }
 
-                                if ctx.input(|i| i.key_pressed(egui::Key::Plus)) {
+                                if ctx.input(|i| {
+                                    i.key_pressed(egui::Key::Plus)
+                                        || i.key_pressed(egui::Key::Equals)
+                                }) {
                                     self.scale_factor *= 1.2;
                                 }
                                 if ctx.input(|i| i.key_pressed(egui::Key::Minus)) {
@@ -434,6 +446,5 @@ impl eframe::App for MyApp {
         if let Ok(p) = self.rx.try_recv() {
             self.load_mulfile(p);
         };
-
     }
 }
